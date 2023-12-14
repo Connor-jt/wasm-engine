@@ -1,0 +1,22 @@
+.re_body{
+    background-color: black;
+    padding: 0px;
+    margin: 0px;
+}
+.re_header{
+    background-color: #313131;
+    width: 100%;
+    height: 50px;
+}
+.re_header_text{
+    color: white;
+    font-family: sans-serif;
+    font-size: large;
+    left: 50%;
+    top: 25%;
+    position: relative;
+}
+.re_viewport{
+    width: 100%;
+    height: 100%;
+}

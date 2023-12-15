@@ -35,8 +35,17 @@ def run():
 
             f.write('];\n')
         # add our extra null guy in
-        # assort all that data into switch
-        f.write('];\n')
+        f.write('const NULL: &[u32] = &[];\n')
+        f.write("pub const fn get_char_data(char:char) -> &'static[u32]{\n\tmatch char {\n")
+        # loop through entries here
+        for file in images:
+            name = os.path.basename(file).removesuffix(".png")
+            f.write(f"\t'{name}' => return {name},\n")
+
+
+        f.write("\t_ => return NULL}\n}")
+
+        # assort all that data into switch statement
 
     # iterate through character images
     # build into a list

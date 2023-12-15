@@ -61,3 +61,19 @@ pub fn key_input(input:&str){
 }
 
 // TICK INPUT FUNCTION ????
+
+
+
+
+// WINDOW RESIZE FUNCTION 
+#[wasm_bindgen]
+pub fn window_resized(){
+    //redraw_canvas();
+    // let canvas: &web_sys::HtmlCanvasElement;
+    // unsafe{ // verify both variables are initialized & assign
+    //     if CANVAS.as_mut_ptr().is_null(){return console::log_1(&JsValue::from_str("canvas/context uninitalized when drawing!!"));}
+    //     canvas = CANVAS.assume_init_ref();
+    // }
+
+    // canvas.set_width(canvas)
+}

@@ -1,6 +1,6 @@
 
 import("../pkg/index.js").catch(console.error);
-import { redraw_canvas, key_input, window_resized } from '../pkg/index_bg.js';
+import { redraw_canvas, key_input, tick, window_resized } from '../pkg/index_bg.js';
 
 
 document.addEventListener('keydown', function(event) {
@@ -8,9 +8,29 @@ document.addEventListener('keydown', function(event) {
 });
 
 var canvas = document.getElementById('canvas');
-window.addEventListener('resize', function(event) {
+window.addEventListener('resize', resize);
+function resize(){
     // update canvas to be correct size
     canvas.width = canvas.clientWidth;
     canvas.height = canvas.clientHeight;
-    window_resized();
+    try{window_resized();} catch(error) {} // again, we load too soon so this doesn't call to thingo
+}
+
+var time_span = document.getElementById('time_span');
+function animate() {
+    requestAnimationFrame(animate);
+    var start = performance.now();
+    try{ // wasm isn't defined??? somehow we're loading too soon even though the module SHOULD be loaded already??? 
+        if (tick() == true){
+            var end = performance.now();
+            time_span.innerText = (end - start).toString() + " ms";
+        }
+    } catch(ex){}
+}
+
+//window.onload = function() {
+window.addEventListener('load', function() {
+    resize();
+    animate();
 });
+  

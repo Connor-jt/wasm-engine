@@ -3,7 +3,11 @@ mod declarations;
 // GLOBAL VARS
 
 static mut PREV_ENTRIES:Vec<String> = vec![];
+static mut LINE_POS:i32 = 0; // signed so we dont get any overflow errors
 static mut LINE:Vec<char> = vec![]; // i hate you rust
+struct line_struct{
+
+}
 
 const CHAR_WIDTH:u32 = 8;
 const CHAR_HEIGHT:u32 = 16;
@@ -18,9 +22,7 @@ pub unsafe fn draw(screen:&mut Vec<u8>, width:u32, height:u32){
             x = 0;
             y += CHAR_HEIGHT;
         }
-        if y + CHAR_HEIGHT >= height{
-            break; // this shouldn't happen?
-        }
+        if y + CHAR_HEIGHT >= height{break;}
         
         // draw thingo
         for value in declarations::get_char_data(*char).iter(){
@@ -38,6 +40,7 @@ pub unsafe fn draw(screen:&mut Vec<u8>, width:u32, height:u32){
         // update draw position
         x += CHAR_WIDTH
     }
+    // then we have to draw our line position indicator??
 
     // iterate characters in output?
 
@@ -48,9 +51,39 @@ pub unsafe fn draw(screen:&mut Vec<u8>, width:u32, height:u32){
 }
 
 
-pub fn input(input:&str) -> bool{
-    if input.len() > 1 {return false;} // then its a control key
+pub unsafe fn input(input:&str) -> bool{
+    if input.len() > 1 { // then its a control key
+        match input{
+            "Backspace" => {
+                let index = (verify_LINE_POS()-1) as usize;
+                if index >= 0 && LINE.len() > index {
+                    LINE.remove(index);
+                    LINE_POS -= 1; verify_LINE_POS(); // subtract and verify
+            }},
+            "Delete" => {
+                let index = (verify_LINE_POS()) as usize;
+                if LINE.len() > index {
+                    LINE.remove(index); // line does not change, do not verify pos
+            }},
+            "ArrowLeft" => {
+                LINE_POS -= 1; verify_LINE_POS(); 
+            },
+            "ArrowRight" => {
+                LINE_POS += 1; verify_LINE_POS(); 
+            },
+            _ => return false
+        }
+        return true; // control key did something, screen needs update
+    } 
 
-    unsafe{LINE.push(input.chars().next().unwrap());}
+    // otherwise its a regular key
+    LINE.insert(verify_LINE_POS() as usize, input.chars().next().unwrap());
+    LINE_POS += 1; //verify_LINE_POS(); // line wont exceed max from doing this, do not need to verify
     return true;
+}
+unsafe fn verify_LINE_POS() ->i32{
+    if LINE_POS != 0{
+        if LINE_POS < 0{LINE_POS = 0; }
+        else if LINE_POS > LINE.len() as i32 {LINE_POS = (LINE.len() as i32);}}
+    return LINE_POS;
 }

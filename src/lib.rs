@@ -11,6 +11,8 @@ mod reconsole;
 // GLOBALS
 static mut CANVAS: MaybeUninit<web_sys::HtmlCanvasElement> = MaybeUninit::uninit();
 static mut CONTEXT: MaybeUninit<web_sys::CanvasRenderingContext2d> = MaybeUninit::uninit();
+static mut requesting_screen_update:bool = true;
+
 
 // INIT FUNCTION
 #[wasm_bindgen(start)]
@@ -50,24 +52,35 @@ pub fn redraw_canvas(){
 
 // INPUT HANDLER FUNCTION
 #[wasm_bindgen]
-pub fn key_input(input:&str){
+pub unsafe fn key_input(input:&str){
     // check if this input wants us to restart/close or something?
     console::log_1(&JsValue::from_str(format!("key pressed! {}", input).as_str()));
 
     // pass input to current process
     if reconsole::input(input){
-        redraw_canvas(); // we actually need to set a bool to say next tick gives us an update!!!!
+        requesting_screen_update = true;
     }
 }
 
 // TICK INPUT FUNCTION ????
+#[wasm_bindgen]
+pub fn tick() -> bool{ // returns whether an update was performed or not
+    unsafe {
+        if requesting_screen_update{
+            redraw_canvas();
+            requesting_screen_update = false;
+            return true;
+    }}
+    return false;
+}
 
 
 
 
 // WINDOW RESIZE FUNCTION 
 #[wasm_bindgen]
-pub fn window_resized(){
+pub unsafe fn window_resized(){
+    requesting_screen_update = true;
     //redraw_canvas();
     // let canvas: &web_sys::HtmlCanvasElement;
     // unsafe{ // verify both variables are initialized & assign

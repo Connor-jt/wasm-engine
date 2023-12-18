@@ -1,12 +1,18 @@
 mod declarations;
+mod interpreter;
+use rfd::AsyncFileDialog;
+
 
 // GLOBAL VARS
+static mut AVAILABLE_FILES:Vec<String> = vec![];
 
 static mut PREV_ENTRIES:Vec<line_struct> = vec![];
 
 static mut LINE_POS:i32 = 0; // signed so we dont get any overflow errors
 static mut LINE:Vec<char> = vec![]; // i hate you rust
 static mut LINE_CONTEXT:[char; 4] = ['c', 'm', 'd', '>']; 
+
+static mut input_blocked:bool = false;
 
 struct line_struct{
     R:u8,
@@ -17,7 +23,7 @@ struct line_struct{
 
 const CHAR_WIDTH:u32 = 8;
 const CHAR_HEIGHT:u32 = 16;
-pub unsafe fn draw_char(screen:&mut Vec<u8>, width:u32, height:u32, char:char, x:u32, y:u32, R:u8, G:u8, B:u8){
+unsafe fn draw_char(screen:&mut Vec<u8>, width:u32, height:u32, char:char, x:u32, y:u32, R:u8, G:u8, B:u8){
     // do a check here to see if base coords are out of bounds, for small perf increase?
     for value in declarations::get_char_data(char).iter(){
         let offset_x:u32 = ((value >> 4) & 0b111) + x;
@@ -43,6 +49,7 @@ pub unsafe fn draw(screen:&mut Vec<u8>, width:u32, height:u32){
         }
         y += CHAR_HEIGHT;
     }
+    if input_blocked {return} // dont render line if input is currently blocked
 
     let mut x:u32 = 0;
     // draw context to line
@@ -62,6 +69,10 @@ pub unsafe fn draw(screen:&mut Vec<u8>, width:u32, height:u32){
     // then we have to draw our line position indicator (doing it this way does not allow us to have a command span multiple lines)
     let indi_x = (verify_LINE_POS() as u32 * CHAR_WIDTH) + post_context_x;
     draw_char(screen, width, height, 'A', indi_x,y, 255,255,255); // this draws the line indicator
+}
+pub unsafe fn add_file(input:String){
+    AVAILABLE_FILES.push(input.clone());
+    output(format!("file '{}' is now accessible", input), 0,255,0);
 }
 
 pub unsafe fn input(input:&str) -> bool{
@@ -108,9 +119,12 @@ fn output(message:String, red:u8, green:u8, blue:u8){
 }
 
 unsafe fn commit_line(){
+    if input_blocked{return;} // cant enter if input is blocked
+
     // convert chars into string
     let curr_line: String = LINE.iter().collect();
     LINE.clear(); // empty the line
+    verify_LINE_POS();
     
 
     // then match string with possible commands?
@@ -119,10 +133,31 @@ unsafe fn commit_line(){
     let prev_line:String = LINE_CONTEXT.iter().collect();
     output(prev_line + &curr_line, 160,160,160);
 
-    let error_message = format!("error! cmd '{}' does not exist!", curr_line);
-    output(error_message, 255,0,0);
-    verify_LINE_POS();
+    process_command(curr_line);
 }
 
+unsafe fn process_command(line:String){
+    // break line down into words + get the first word which will be the command
+    let args:Vec<&str> = line.split(" ").collect();
+    if args.len() == 0{ return;} // return if empty
 
+    match args[0]{
+        "hello" => {
+            output("hello world!!".to_owned(), 0,255,0);
+        },
+        "run" => {
+            input_blocked = true;
+            let file_output = interpreter::run_file();
+            if file_output.is_some(){output(format!("file error: {}", file_output.unwrap()), 255,0,0);}
+            input_blocked = false;
+        },
+        _ => {
+            let error_message = format!("error! cmd '{}' does not exist!", line);
+            output(error_message, 255,0,0);
+        }
+    }
+
+
+
+}
 

@@ -1,6 +1,6 @@
 
 import("../pkg/index.js").catch(console.error);
-import { redraw_canvas, key_input, tick, window_resized } from '../pkg/index_bg.js';
+import { redraw_canvas, key_input, tick, window_resized, file_added } from '../pkg/index_bg.js';
 
 
 document.addEventListener('keydown', function(event) {
@@ -34,3 +34,9 @@ window.addEventListener('load', function() {
     animate();
 });
   
+var files_box = document.getElementById('file');
+files_box.onchange = e => { 
+    let file = e.target.files[0]; 
+    console.log(file); 
+    file_added(file.name);
+};

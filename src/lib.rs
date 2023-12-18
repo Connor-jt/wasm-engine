@@ -90,3 +90,7 @@ pub unsafe fn window_resized(){
 
     // canvas.set_width(canvas)
 }
+#[wasm_bindgen]
+pub unsafe fn file_added(file:String){
+    reconsole::add_file(file);
+}

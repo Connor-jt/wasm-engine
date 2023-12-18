@@ -44,8 +44,6 @@ pub unsafe fn draw(screen:&mut Vec<u8>, width:u32, height:u32){
         y += CHAR_HEIGHT;
     }
 
-
-
     let mut x:u32 = 0;
     // draw context to line
     for char in LINE_CONTEXT.iter(){
@@ -64,30 +62,6 @@ pub unsafe fn draw(screen:&mut Vec<u8>, width:u32, height:u32){
     // then we have to draw our line position indicator (doing it this way does not allow us to have a command span multiple lines)
     let indi_x = (verify_LINE_POS() as u32 * CHAR_WIDTH) + post_context_x;
     draw_char(screen, width, height, 'A', indi_x,y, 255,255,255); // this draws the line indicator
-    
-
-
-
-
-
-}
-
-fn output(message:String, red:u8, green:u8, blue:u8){
-    let test:line_struct = line_struct{ Line:message, R:red, G:green, B:blue};
-    unsafe {PREV_ENTRIES.push(test);}
-}
-
-unsafe fn commit_line(){
-    // convert chars into string
-    let curr_line: String = LINE.iter().collect();
-    LINE.clear(); // empty the line
-
-    // then match string with possible commands?
-    // for now we're going to pretend that every combination just returns an error
-
-    let error_message = format!("error! cmd '{}' does not exist!", curr_line);
-    output(error_message, 255,0,0);
-    verify_LINE_POS();
 }
 
 pub unsafe fn input(input:&str) -> bool{
@@ -114,15 +88,41 @@ pub unsafe fn input(input:&str) -> bool{
         } // 0 g1 2
         return true; // control key did something, screen needs update
     } 
-
     // otherwise its a regular key
     LINE.insert(verify_LINE_POS() as usize, input.chars().next().unwrap().to_ascii_lowercase());
     LINE_POS += 1; //verify_LINE_POS(); // line wont exceed max from doing this, do not need to verify
     return true;
 }
+
 unsafe fn verify_LINE_POS() ->i32{
     if LINE_POS != 0{
         if LINE_POS < 0{LINE_POS = 0; }
         else if LINE_POS > LINE.len() as i32 {LINE_POS = (LINE.len() as i32);}}
     return LINE_POS;
 }
+
+
+fn output(message:String, red:u8, green:u8, blue:u8){
+    let test:line_struct = line_struct{ Line:message, R:red, G:green, B:blue};
+    unsafe {PREV_ENTRIES.push(test);}
+}
+
+unsafe fn commit_line(){
+    // convert chars into string
+    let curr_line: String = LINE.iter().collect();
+    LINE.clear(); // empty the line
+    
+
+    // then match string with possible commands?
+    // for now we're going to pretend that every combination just returns an error
+
+    let prev_line:String = LINE_CONTEXT.iter().collect();
+    output(prev_line + &curr_line, 160,160,160);
+
+    let error_message = format!("error! cmd '{}' does not exist!", curr_line);
+    output(error_message, 255,0,0);
+    verify_LINE_POS();
+}
+
+
+

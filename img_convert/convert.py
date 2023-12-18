@@ -12,9 +12,19 @@ def pack_coords(x:int, y:int) -> int:
     assert(x <=  0b111)
     return ((x&0b111) << 4) | (y&0b1111)
 
+def fixup_chars(string:str) -> str:
+    if string == "lt": # convert to less than
+        return "<"
+    elif string == "gt": # convert to greater than
+        return ">"
+    elif string == "C": # convert to space
+        return " "
+    return string
+
+
 def filename(file:str) -> str:
     output = os.path.basename(file).removesuffix(".png").replace('_', '')
-    return output # nevermind # file[-5] # get the 4th last character of the file path, these file names will only ever be 1 character long
+    return fixup_chars(output)
 
 def varname(file:str) -> str:
     output:str = os.path.basename(file).removesuffix(".png")
@@ -44,14 +54,14 @@ def run():
 
             f.write('];\n')
         # add our extra null guy in
-        f.write('const NULL: &[u32] = &[];\n')
+        #f.write('const NULL: &[u32] = &[];\n')
         f.write("pub const fn get_char_data(char:char) -> &'static[u32]{\n\tmatch char {\n")
         # loop through entries here
         for file in images:
             f.write(f"\t'{filename(file)}' => return {varname(file)},\n")
 
 
-        f.write("\t_ => return NULL}\n}")
+        f.write("\t_ => return _B}\n}")
 
         # assort all that data into switch statement
 

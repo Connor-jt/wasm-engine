@@ -34,9 +34,16 @@ window.addEventListener('load', function() {
     animate();
 });
   
+
+
+
 var files_box = document.getElementById('file');
 files_box.onchange = e => { 
     let file = e.target.files[0]; 
     console.log(file); 
-    file_added(file.name);
+    (async () => {
+        let test = await file.arrayBuffer();
+        console.log(test); 
+        file_added(file.name, new Uint8Array(test));
+    })();
 };

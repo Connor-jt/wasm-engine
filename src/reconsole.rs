@@ -1,10 +1,10 @@
 mod declarations;
 mod interpreter;
 use rfd::AsyncFileDialog;
-
+use crate::reconsole::interpreter::loaded_file;
 
 // GLOBAL VARS
-static mut AVAILABLE_FILES:Vec<String> = vec![];
+static mut AVAILABLE_FILES:Vec<loaded_file> = vec![];
 
 static mut PREV_ENTRIES:Vec<line_struct> = vec![];
 
@@ -19,6 +19,13 @@ struct line_struct{
     G:u8,
     B:u8,
     Line:String
+}
+unsafe fn file_from_available(file:&str) -> Option<&loaded_file>{
+    for loaded in AVAILABLE_FILES.iter(){
+        if loaded.name == file{
+            return Some(loaded);
+    }}
+    return None;
 }
 
 const CHAR_WIDTH:u32 = 8;
@@ -70,8 +77,8 @@ pub unsafe fn draw(screen:&mut Vec<u8>, width:u32, height:u32){
     let indi_x = (verify_LINE_POS() as u32 * CHAR_WIDTH) + post_context_x;
     draw_char(screen, width, height, 'A', indi_x,y, 255,255,255); // this draws the line indicator
 }
-pub unsafe fn add_file(input:String){
-    AVAILABLE_FILES.push(input.clone());
+pub unsafe fn add_file(input:String, data:Vec<u8>){
+    AVAILABLE_FILES.push(loaded_file{name: input.clone(), data: data});
     output(format!("file '{}' is now accessible", input), 0,255,0);
 }
 
@@ -140,24 +147,42 @@ unsafe fn process_command(line:String){
     // break line down into words + get the first word which will be the command
     let args:Vec<&str> = line.split(" ").collect();
     if args.len() == 0{ return;} // return if empty
+    input_blocked = true;
 
     match args[0]{
         "hello" => {
             output("hello world!!".to_owned(), 0,255,0);
         },
-        "run" => {
-            input_blocked = true;
-            let file_output = interpreter::run_file();
+        "run"  => 'test: {
+            // validate args
+            if args.len() < 2{break 'test;}
+            let target_file = file_from_available(args[1]);
+            if target_file.is_none(){
+                output(format!("error! file '{}' is not available!", args[1]), 255,0,0);
+                break 'test;
+            }
+            //
+            let file_output = interpreter::run_file(target_file.unwrap());
             if file_output.is_some(){output(format!("file error: {}", file_output.unwrap()), 255,0,0);}
-            input_blocked = false;
+            //
+        },
+        "dir" => {
+            for file in AVAILABLE_FILES.iter(){
+                output(format!("{} {}", file.name.to_owned(), filesize_to_string(file.data.len())), 200, 200,200);
+            }
         },
         _ => {
-            let error_message = format!("error! cmd '{}' does not exist!", line);
-            output(error_message, 255,0,0);
+            output(format!("error! cmd '{}' does not exist!", line), 255,0,0);
         }
     }
 
 
-
+    input_blocked = false;
 }
 
+fn filesize_to_string(size: usize) -> String{
+    if size < 1000{ return format!("{}b", size);} 
+    else if size < 1000000{return format!("{}kb", size/1000);}
+    else if size < 1000000000{return format!("{}mb", size/1000000);}
+    else {return format!("{}gb", size/1000000000);}
+}

@@ -7,23 +7,18 @@ use futures::executor;
 
 static mut loaded_exe: Vec<u8> = vec![];
 
+pub struct loaded_file{
+    pub name:String,
+    pub data:Vec<u8>
+}
 // we have to return the error message or if there was no error then we return null somehow
-pub unsafe fn run_file() -> Option<String> {
+pub unsafe fn run_file(filename:&loaded_file) -> Option<String> {
     
-    let future = async {load_file().await};
-    let file_output = executor::block_on(future);
 
-    //if file_output.is_none(){return Some("failed to open file".to_owned())}
 
 
 
     return Some("success ??".to_owned());
-}
-async unsafe fn load_file() -> Option<Vec<u8>>{
-    let file = AsyncFileDialog::new().add_filter("executable", &["exe", "dll"]).set_directory("/").pick_file().await;
-    if file.is_none(){ return None}; 
-    let data = file.unwrap().read().await;
-    return Some(data);
 }
 
 // have the fun ction here that runs the code, we have to run all of the code in a single go, idk how programs can run over the span of more than 1 tick

@@ -54,7 +54,7 @@ pub fn redraw_canvas(){
 #[wasm_bindgen]
 pub unsafe fn key_input(input:&str){
     // check if this input wants us to restart/close or something?
-    console::log_1(&JsValue::from_str(format!("key pressed! {}", input).as_str()));
+    //console::log_1(&JsValue::from_str(format!("key pressed! {}", input).as_str()));
 
     // pass input to current process
     if reconsole::input(input){
@@ -91,6 +91,10 @@ pub unsafe fn window_resized(){
     // canvas.set_width(canvas)
 }
 #[wasm_bindgen]
-pub unsafe fn file_added(file:String){
-    reconsole::add_file(file);
+pub unsafe fn file_added(file:String, data:Vec<u8>){
+    let test = format!("{}, {}bytes", file, data.len());
+    console::log_1(&JsValue::from_str(&test));
+    
+    reconsole::add_file(file, data);
+    requesting_screen_update = true;
 }

@@ -27,6 +27,26 @@ unsafe fn file_from_available(file:&str) -> Option<&loaded_file>{
     }}
     return None;
 }
+unsafe fn verify_filename(requested_name:String) -> String{ // this just gives the file a new name if we already have a file with that name
+    let mut curr_name = requested_name.clone();
+    let mut iteration_count = 0;
+    while true {
+        for file in AVAILABLE_FILES.iter(){
+            if file.name == curr_name{
+                iteration_count += 1;
+                curr_name = format!("{}{}", requested_name, format!("_{}", iteration_count)); // bruh just lemme += strings for the love of god
+                continue;
+        }}
+        break; // name not found, clear to use current name
+    }
+    return curr_name;
+}   
+fn filesize_to_string(size: usize) -> String{
+    if size < 1000{ return format!("{}b", size);} 
+    else if size < 1000000{return format!("{}kb", size/1000);}
+    else if size < 1000000000{return format!("{}mb", size/1000000);}
+    else {return format!("{}gb", size/1000000000);}
+}
 
 const CHAR_WIDTH:u32 = 8;
 const CHAR_HEIGHT:u32 = 16;
@@ -78,8 +98,9 @@ pub unsafe fn draw(screen:&mut Vec<u8>, width:u32, height:u32){
     draw_char(screen, width, height, 'A', indi_x,y, 255,255,255); // this draws the line indicator
 }
 pub unsafe fn add_file(input:String, data:Vec<u8>){
-    AVAILABLE_FILES.push(loaded_file{name: input.clone(), data: data});
-    output(format!("file '{}' is now accessible", input), 0,255,0);
+    let verified_name = verify_filename(input);
+    AVAILABLE_FILES.push(loaded_file{name: verified_name.clone(), data: data});
+    output(format!("file '{}' is now accessible", verified_name), 0,255,0);
 }
 
 pub unsafe fn input(input:&str) -> bool{
@@ -178,11 +199,4 @@ unsafe fn process_command(line:String){
 
 
     input_blocked = false;
-}
-
-fn filesize_to_string(size: usize) -> String{
-    if size < 1000{ return format!("{}b", size);} 
-    else if size < 1000000{return format!("{}kb", size/1000);}
-    else if size < 1000000000{return format!("{}mb", size/1000000);}
-    else {return format!("{}gb", size/1000000000);}
 }

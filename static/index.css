@@ -5,18 +5,22 @@
 }
 .re_header{
     /* background-color: #313131; */
-    width: 100%;
     height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 .re_header_text{
+    width: 180px;
     color: white;
     font-family: sans-serif;
     font-size: large;
-    left: 50%;
-    top: 25%;
     position: relative;
 }
 .re_viewport{
-    width: 100%;
-    height: 100%;
+    position: absolute;
+    top: 55px;
+    left: 5px;
+    width: calc(100% - 10px);
+    height: calc(100% - 60px);
 }

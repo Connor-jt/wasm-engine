@@ -23,7 +23,7 @@ function animate() {
     try{ // wasm isn't defined??? somehow we're loading too soon even though the module SHOULD be loaded already??? 
         if (tick() == true){
             var end = performance.now();
-            time_span.innerText = (end - start).toString() + " ms";
+            time_span.innerText = (end - start).toFixed().toString() + " ms";
         }
     } catch(ex){}
 }
@@ -40,7 +40,9 @@ window.addEventListener('load', function() {
 var files_box = document.getElementById('file');
 files_box.onchange = e => { 
     let file = e.target.files[0]; 
+    if (file == null){ return;} // dont do anything when we clear the file
     console.log(file); 
+    files_box.value = null; // then clear the value because we might want to upload the same file twice
     (async () => {
         let test = await file.arrayBuffer();
         console.log(test); 

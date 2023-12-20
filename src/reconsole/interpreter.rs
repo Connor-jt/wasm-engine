@@ -5,15 +5,22 @@ use std::io::Read;
 use rfd::AsyncFileDialog;
 use futures::executor;
 
-static mut loaded_exe: Vec<u8> = vec![];
+mod registers;
+
+struct running_process{
+    // functions map?
+    // 
+
+}
 
 pub struct loaded_file{
     pub name:String,
-    pub data:Vec<u8>
+    pub data:Vec<u8>,
+    //pub process:running_process // this contains all the data to run the process
 }
+
 // we have to return the error message or if there was no error then we return null somehow
-pub unsafe fn run_file(filename:&loaded_file) -> Option<String> {
-    
+pub unsafe fn run_file(file:&loaded_file) -> Option<String> {
 
 
 

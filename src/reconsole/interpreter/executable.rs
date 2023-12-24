@@ -9,16 +9,16 @@ pub struct exe<'a>{
     pub dos_header:&'a IMAGE_DOS_HEADER,
     pub file_header:&'a IMAGE_FILE_HEADER,
     pub optional_header:&'a IMAGE_OPTIONAL_HEADER_64,
-    pub optional_header_rva:&'a IMAGE_OPTIONAL_HEADER_RVA<'a>,
-    pub section_header:Vec<&'a IMAGE_SECTION_HEADER>,
+    pub optional_header_rva:IMAGE_OPTIONAL_HEADER_RVA<'a>,
+    pub section_headers:Vec<&'a IMAGE_SECTION_HEADER>,
 }
 // for some reason these sizes aren't correct so we have to use consts. thanks john rust
 const SIZE_OF_IMAGE_DOS_HEADER:u32 = 64;
 const SIZE_OF_IMAGE_FILE_HEADER:u32 = 24;
 const SIZE_OF_IMAGE_OPTIONAL_HEADER_64:u32 = 112;
-//const SIZE_OF_IMAGE_OPTIONAL_HEADER_RVA:u32 = 128; // we dont cast so we dont actually need this const
 const SIZE_OF_IMAGE_DATA_DIRECTORY:u32 = 8;
 const SIZE_OF_IMAGE_SECTION_HEADER:u32 = 40;
+
 pub unsafe fn construct_exe(data:&Vec<u8>) -> exe_results{
     // debug struct sizes
 
@@ -85,7 +85,7 @@ pub unsafe fn construct_exe(data:&Vec<u8>) -> exe_results{
     }
 
     
-    return exe_results{error_message: Some("success".to_owned()), constructed: None };
+    return exe_results{error_message: None, constructed: Some(exe{ dos_header: dos_header, file_header: file_header, optional_header:optional_header, optional_header_rva:optional_header_rva, section_headers:section_headers}) };
 }
 unsafe fn cast_ref<T>(bytes: &Vec<u8>, offset:usize) -> &T {
     // assert correct endianness somehow

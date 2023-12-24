@@ -6,6 +6,7 @@ use rfd::AsyncFileDialog;
 use futures::executor;
 
 mod registers;
+mod executable;
 
 struct running_process{
     // functions map?
@@ -22,11 +23,11 @@ pub struct loaded_file{
 // we have to return the error message or if there was no error then we return null somehow
 pub unsafe fn run_file(file:&loaded_file) -> Option<String> {
 
-
+    let var = executable::construct_exe(&file.data);
     
+    return Some(var.error_message.unwrap());
 
-
-    return Some("success ??".to_owned());
+    //return Some("success ??".to_owned());
 }
 
 // have the fun ction here that runs the code, we have to run all of the code in a single go, idk how programs can run over the span of more than 1 tick

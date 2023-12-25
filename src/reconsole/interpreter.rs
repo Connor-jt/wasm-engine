@@ -23,9 +23,9 @@ pub struct loaded_file{
 // we have to return the error message or if there was no error then we return null somehow
 pub unsafe fn run_file(file:&loaded_file) -> Option<String> {
 
-    let var = executable::construct_exe(&file.data);
+    let var = executable::load_exe(&file.data);
     
-    return Some(var.error_message.unwrap());
+    return Some(var.err().unwrap());
 
     //return Some("success ??".to_owned());
 }

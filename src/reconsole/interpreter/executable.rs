@@ -1,11 +1,13 @@
 
-use std::mem;
+use std::{mem, option};
 
-pub struct exe_results<'a>{
-    pub error_message: Option<String>,
-    pub constructed: Option<exe<'a>>
+pub struct loaded_exe<'a>{
+    runtime_data:Vec<u8>,
+    header:exe_header<'a>,
+
 }
-pub struct exe<'a>{
+
+pub struct exe_header<'a>{
     pub dos_header:&'a IMAGE_DOS_HEADER,
     pub file_header:&'a IMAGE_FILE_HEADER,
     pub optional_header:&'a IMAGE_OPTIONAL_HEADER_64,
@@ -19,36 +21,61 @@ const SIZE_OF_IMAGE_OPTIONAL_HEADER_64:u32 = 112;
 const SIZE_OF_IMAGE_DATA_DIRECTORY:u32 = 8;
 const SIZE_OF_IMAGE_SECTION_HEADER:u32 = 40;
 
-pub unsafe fn construct_exe(data:&Vec<u8>) -> exe_results{
-    // debug struct sizes
+pub unsafe fn load_exe(data:&Vec<u8>) -> Result<loaded_exe,String>{
 
+    // load header
+    let header = cast_exe_header(data)?;
+
+
+    // find furthest code section?
+    let mut largest_offset:u32 = 0;
+    for section in header.section_headers.iter(){
+        let curr_offset = section.virtual_address + section.virtual_size;
+        if curr_offset > largest_offset{ 
+            largest_offset = curr_offset; 
+        }
+    }
+
+    // then reallocate all data
+    let mut reallocated_data:Vec<u8> = Vec::with_capacity(largest_offset as usize);
+    return Err(format!("size {}", largest_offset));
+
+    for section in header.section_headers.iter(){
+        let target_data = &data[section.pointer_to_raw_data as usize..(section.pointer_to_raw_data + section.virtual_size) as usize];
+        reallocated_data.splice(section.virtual_address as usize.. (section.virtual_address + section.virtual_size) as usize, target_data.iter().cloned());
+    }
+
+
+    return Err("successfully mapped executable to mem".to_owned());
+    // then grab a new cast of the header?
+
+}
+
+
+pub unsafe fn cast_exe_header(data:&Vec<u8>) -> Result<exe_header,String>{
     let mut curr_offset:u32 = 0;
-    if (data.len() as u32) < SIZE_OF_IMAGE_DOS_HEADER {
-        return exe_results{error_message:Some("file not large enough to contain dos header".to_owned()), constructed:None};}
+    if (data.len() as u32) < SIZE_OF_IMAGE_DOS_HEADER {return Err("file not large enough to contain dos header".to_owned());}
 
     let dos_header:&IMAGE_DOS_HEADER = cast_ref(data, 0);
     curr_offset += dos_header.e_lfanew;
 
-    if dos_header.e_magic != 23117 {
-        return exe_results{error_message:Some("file does not contain exe signature".to_owned()), constructed:None};}
+    if dos_header.e_magic != 23117 {return Err("file does not contain exe signature".to_owned());}
 
-    if data.len() as u32 - curr_offset < SIZE_OF_IMAGE_FILE_HEADER{
-        return exe_results{error_message:Some("file not large enough to contain pe file header".to_owned()), constructed:None};}
+    if data.len() as u32 - curr_offset < SIZE_OF_IMAGE_FILE_HEADER{return Err("file not large enough to contain pe file header".to_owned());}
     
     let file_header:&IMAGE_FILE_HEADER = cast_ref(data, curr_offset as usize);
     curr_offset += SIZE_OF_IMAGE_FILE_HEADER;
     
-    if data.len() as u32 - curr_offset < SIZE_OF_IMAGE_FILE_HEADER{
-        return exe_results{error_message:Some("file not large enough to contain optional header".to_owned()), constructed:None};}
+    if data.len() as u32 - curr_offset < SIZE_OF_IMAGE_FILE_HEADER{return Err("file not large enough to contain optional header".to_owned());}
     
     // we should have a condition here that lets us skip this if the size of the optional header is 0, however i believe this section is mandatory for exe & dll
     let optional_header:&IMAGE_OPTIONAL_HEADER_64 = cast_ref(data, curr_offset as usize);
     curr_offset += SIZE_OF_IMAGE_OPTIONAL_HEADER_64 as u32;
     
+    if optional_header.magic != 0x20B{return Err("optional header specified format other than 64 bit".to_owned());}
     if SIZE_OF_IMAGE_OPTIONAL_HEADER_64 + (optional_header.number_of_rva_and_sizes as u32 * SIZE_OF_IMAGE_DATA_DIRECTORY) != file_header.size_of_optional_header as u32 {
-        return exe_results{error_message:Some("optional header did not match expected size".to_owned()), constructed:None};}
-    if optional_header.number_of_rva_and_sizes > 16 {
-        return exe_results{error_message:Some("optional header had unexpected rva count".to_owned()), constructed:None};}
+        return Err("optional header did not match expected size".to_owned());}
+    if optional_header.number_of_rva_and_sizes > 16 {return Err("optional header had unexpected rva count".to_owned());}
     
     let mut optional_header_rva:IMAGE_OPTIONAL_HEADER_RVA = IMAGE_OPTIONAL_HEADER_RVA{export_table: None, import_table: None, resource_table: None, exception_table: None, certificate_table: None, base_relocation_table: None, debug: None, architecture: None, global_ptr: None, tls_table: None, load_config_table: None, bound_import: None, iat: None, delay_import_descriptor: None, clr_runtime_header: None, reserved_must_be_zero: None};
     // switch on all the things & iterate
@@ -70,23 +97,22 @@ pub unsafe fn construct_exe(data:&Vec<u8>) -> exe_results{
             13 => {optional_header_rva.delay_import_descriptor = Some(cast_ref(data, curr_offset as usize));},
             14 => {optional_header_rva.clr_runtime_header = Some(cast_ref(data, curr_offset as usize));},
             15 => {optional_header_rva.reserved_must_be_zero = Some(cast_ref(data, curr_offset as usize));},
-            _ => {return exe_results{error_message:Some("optional header unexpected rva index? redundant error".to_owned()), constructed:None};}
+            _ => {return Err("optional header unexpected rva index? redundant error".to_owned());}
         }
         curr_offset += SIZE_OF_IMAGE_DATA_DIRECTORY;
     }
     
-    if data.len() as u32 - curr_offset < SIZE_OF_IMAGE_SECTION_HEADER * file_header.number_of_sections as u32{
-        return exe_results{error_message:Some("file not large enough to contain section headers".to_owned()), constructed:None};}
+    if data.len() as u32 - curr_offset < SIZE_OF_IMAGE_SECTION_HEADER * file_header.number_of_sections as u32{return Err("file not large enough to contain section headers".to_owned());}
 
     let mut section_headers:Vec<&IMAGE_SECTION_HEADER> = vec![];
     for index in 0..file_header.number_of_sections{
         section_headers.push(cast_ref(data, curr_offset as usize));
         curr_offset += SIZE_OF_IMAGE_SECTION_HEADER;
     }
-
     
-    return exe_results{error_message: None, constructed: Some(exe{ dos_header: dos_header, file_header: file_header, optional_header:optional_header, optional_header_rva:optional_header_rva, section_headers:section_headers}) };
+    return Ok(exe_header{ dos_header: dos_header, file_header: file_header, optional_header:optional_header, optional_header_rva:optional_header_rva, section_headers:section_headers});
 }
+
 unsafe fn cast_ref<T>(bytes: &Vec<u8>, offset:usize) -> &T {
     // assert correct endianness somehow
     assert!(bytes.len() - offset >= mem::size_of::<T>());
@@ -220,7 +246,7 @@ pub struct IMAGE_FILE_HEADER {
 
 #[repr(C, packed)]
 pub struct IMAGE_OPTIONAL_HEADER_64 {
-    pub magic: u16, // 0x10 = 32bit, 0x20 = 64bit 
+    pub magic: u16, // 0x10B = 32bit, 0x20B = 64bit 
     pub major_linker_version: u8,
     pub minor_linker_version: u8,
     pub size_of_code: u32,

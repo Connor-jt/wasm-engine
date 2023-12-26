@@ -1,18 +1,17 @@
 
-use std::{mem, option};
+use std::{mem, option, ops::Deref};
 
-pub struct loaded_exe<'a>{
-    runtime_data:Vec<u8>,
-    header:exe_header<'a>,
-
+pub struct loaded_exe{
+    pub runtime_data:Vec<u8>,
+    pub header: exe_header,
 }
 
-pub struct exe_header<'a>{
-    pub dos_header:&'a IMAGE_DOS_HEADER,
-    pub file_header:&'a IMAGE_FILE_HEADER,
-    pub optional_header:&'a IMAGE_OPTIONAL_HEADER_64,
-    pub optional_header_rva:IMAGE_OPTIONAL_HEADER_RVA<'a>,
-    pub section_headers:Vec<&'a IMAGE_SECTION_HEADER>,
+pub struct exe_header{
+    pub dos_header:IMAGE_DOS_HEADER,
+    pub file_header:IMAGE_FILE_HEADER,
+    pub optional_header:IMAGE_OPTIONAL_HEADER_64,
+    pub optional_header_rva:IMAGE_OPTIONAL_HEADER_RVA,
+    pub section_headers:Vec<IMAGE_SECTION_HEADER>,
 }
 // for some reason these sizes aren't correct so we have to use consts. thanks john rust
 const SIZE_OF_IMAGE_DOS_HEADER:u32 = 64;
@@ -35,20 +34,31 @@ pub unsafe fn load_exe(data:&Vec<u8>) -> Result<loaded_exe,String>{
             largest_offset = curr_offset; 
         }
     }
-
+    //let mut result = loaded_exe{runtime_data: vec![0; largest_offset as usize], header:None}; // screw you dumb option wrapping pooop system
+    //let mut result = loaded_exe{runtime_data: &vec![], header:None};
     // then reallocate all data
-    let mut reallocated_data:Vec<u8> = Vec::with_capacity(largest_offset as usize);
-    return Err(format!("size {}", largest_offset));
+    let mut reallocated_data:Vec<u8> = vec![0; largest_offset as usize];// Vec::with_capacity(largest_offset as usize);
+    //return Err(format!("size {}", reallocated_data.len()));
+
+    // copy over the header aswell
+    reallocated_data.splice(0..header.optional_header.size_of_headers as usize, (&data[0..header.optional_header.size_of_headers as usize]).iter().cloned());
 
     for section in header.section_headers.iter(){
         let target_data = &data[section.pointer_to_raw_data as usize..(section.pointer_to_raw_data + section.virtual_size) as usize];
         reallocated_data.splice(section.virtual_address as usize.. (section.virtual_address + section.virtual_size) as usize, target_data.iter().cloned());
     }
+    
 
 
-    return Err("successfully mapped executable to mem".to_owned());
-    // then grab a new cast of the header?
+    let new_header = cast_exe_header(&reallocated_data);
+    if new_header.is_err(){
+        return Err(format!("{}{}", "issue with new header: ".to_owned(), new_header.err().unwrap()));}
+   //result.header = Some(new_header.unwrap());
 
+    //return Err("test".to_owned());
+    //return Ok(result);
+    return Ok(loaded_exe{runtime_data: reallocated_data, header: new_header.unwrap()});
+    
 }
 
 
@@ -56,20 +66,20 @@ pub unsafe fn cast_exe_header(data:&Vec<u8>) -> Result<exe_header,String>{
     let mut curr_offset:u32 = 0;
     if (data.len() as u32) < SIZE_OF_IMAGE_DOS_HEADER {return Err("file not large enough to contain dos header".to_owned());}
 
-    let dos_header:&IMAGE_DOS_HEADER = cast_ref(data, 0);
+    let dos_header:IMAGE_DOS_HEADER = cast_ref(data, 0);
     curr_offset += dos_header.e_lfanew;
 
     if dos_header.e_magic != 23117 {return Err("file does not contain exe signature".to_owned());}
 
     if data.len() as u32 - curr_offset < SIZE_OF_IMAGE_FILE_HEADER{return Err("file not large enough to contain pe file header".to_owned());}
     
-    let file_header:&IMAGE_FILE_HEADER = cast_ref(data, curr_offset as usize);
+    let file_header:IMAGE_FILE_HEADER = cast_ref(data, curr_offset as usize);
     curr_offset += SIZE_OF_IMAGE_FILE_HEADER;
     
     if data.len() as u32 - curr_offset < SIZE_OF_IMAGE_FILE_HEADER{return Err("file not large enough to contain optional header".to_owned());}
     
     // we should have a condition here that lets us skip this if the size of the optional header is 0, however i believe this section is mandatory for exe & dll
-    let optional_header:&IMAGE_OPTIONAL_HEADER_64 = cast_ref(data, curr_offset as usize);
+    let optional_header:IMAGE_OPTIONAL_HEADER_64 = cast_ref(data, curr_offset as usize);
     curr_offset += SIZE_OF_IMAGE_OPTIONAL_HEADER_64 as u32;
     
     if optional_header.magic != 0x20B{return Err("optional header specified format other than 64 bit".to_owned());}
@@ -104,7 +114,7 @@ pub unsafe fn cast_exe_header(data:&Vec<u8>) -> Result<exe_header,String>{
     
     if data.len() as u32 - curr_offset < SIZE_OF_IMAGE_SECTION_HEADER * file_header.number_of_sections as u32{return Err("file not large enough to contain section headers".to_owned());}
 
-    let mut section_headers:Vec<&IMAGE_SECTION_HEADER> = vec![];
+    let mut section_headers:Vec<IMAGE_SECTION_HEADER> = vec![];
     for index in 0..file_header.number_of_sections{
         section_headers.push(cast_ref(data, curr_offset as usize));
         curr_offset += SIZE_OF_IMAGE_SECTION_HEADER;
@@ -113,12 +123,13 @@ pub unsafe fn cast_exe_header(data:&Vec<u8>) -> Result<exe_header,String>{
     return Ok(exe_header{ dos_header: dos_header, file_header: file_header, optional_header:optional_header, optional_header_rva:optional_header_rva, section_headers:section_headers});
 }
 
-unsafe fn cast_ref<T>(bytes: &Vec<u8>, offset:usize) -> &T {
+unsafe fn cast_ref<T>(bytes: &Vec<u8>, offset:usize) -> T {
     // assert correct endianness somehow
     assert!(bytes.len() - offset >= mem::size_of::<T>());
     let ptr: *const u8 = bytes.as_ptr().wrapping_add(offset);
     //assert_eq!(ptr.align_offset(mem::align_of::<T>()), 0);
-    ptr.cast::<T>().as_ref().unwrap()
+    let test = ptr.cast::<T>().read();
+    return test;
 }
 
 pub enum file_header_machine_type{ // SHOULD BE u16
@@ -279,23 +290,23 @@ pub struct IMAGE_OPTIONAL_HEADER_64 {
 } // 112 bytes
 
 #[repr(C, packed)]
-pub struct IMAGE_OPTIONAL_HEADER_RVA<'a>{ // supposedly these can be nullable?
-    pub export_table:Option<&'a IMAGE_DATA_DIRECTORY>, //The export table address and size. For more information see .edata Section (Image Only).
-    pub import_table:Option<&'a IMAGE_DATA_DIRECTORY>, //The import table address and size. For more information, see The .idata Section.
-    pub resource_table:Option<&'a IMAGE_DATA_DIRECTORY>, //The resource table address and size. For more information, see The .rsrc Section.
-    pub exception_table:Option<&'a IMAGE_DATA_DIRECTORY>, //The exception table address and size. For more information, see The .pdata Section.
-    pub certificate_table:Option<&'a IMAGE_DATA_DIRECTORY>, //The attribute certificate table address and size. For more information, see The Attribute Certificate Table (Image Only).
-    pub base_relocation_table:Option<&'a IMAGE_DATA_DIRECTORY>, //The base relocation table address and size. For more information, see The .reloc Section (Image Only).
-    pub debug:Option<&'a IMAGE_DATA_DIRECTORY>, //The debug data starting address and size. For more information, see The .debug Section.
-    pub architecture:Option<&'a IMAGE_DATA_DIRECTORY>, //Reserved, must be 0
-    pub global_ptr:Option<&'a IMAGE_DATA_DIRECTORY>, //The RVA of the value to be stored in the global pointer register. The size member of this structure must be set to zero.
-    pub tls_table:Option<&'a IMAGE_DATA_DIRECTORY>, //The thread local storage (TLS) table address and size. For more information, see The .tls Section.
-    pub load_config_table:Option<&'a IMAGE_DATA_DIRECTORY>, //The load configuration table address and size. For more information, see The Load Configuration Structure (Image Only).
-    pub bound_import:Option<&'a IMAGE_DATA_DIRECTORY>, //The bound import table address and size.
-    pub iat:Option<&'a IMAGE_DATA_DIRECTORY>, //The import address table address and size. For more information, see Import Address Table.
-    pub delay_import_descriptor:Option<&'a IMAGE_DATA_DIRECTORY>, //The delay import descriptor address and size. For more information, see Delay-Load Import Tables (Image Only).
-    pub clr_runtime_header:Option<&'a IMAGE_DATA_DIRECTORY>, //The CLR runtime header address and size. For more information, see The .cormeta Section (Object Only).
-    pub reserved_must_be_zero:Option<&'a IMAGE_DATA_DIRECTORY>, //
+pub struct IMAGE_OPTIONAL_HEADER_RVA{ // supposedly these can be nullable?
+    pub export_table:Option<IMAGE_DATA_DIRECTORY>, //The export table address and size. For more information see .edata Section (Image Only).
+    pub import_table:Option<IMAGE_DATA_DIRECTORY>, //The import table address and size. For more information, see The .idata Section.
+    pub resource_table:Option<IMAGE_DATA_DIRECTORY>, //The resource table address and size. For more information, see The .rsrc Section.
+    pub exception_table:Option<IMAGE_DATA_DIRECTORY>, //The exception table address and size. For more information, see The .pdata Section.
+    pub certificate_table:Option<IMAGE_DATA_DIRECTORY>, //The attribute certificate table address and size. For more information, see The Attribute Certificate Table (Image Only).
+    pub base_relocation_table:Option<IMAGE_DATA_DIRECTORY>, //The base relocation table address and size. For more information, see The .reloc Section (Image Only).
+    pub debug:Option<IMAGE_DATA_DIRECTORY>, //The debug data starting address and size. For more information, see The .debug Section.
+    pub architecture:Option<IMAGE_DATA_DIRECTORY>, //Reserved, must be 0
+    pub global_ptr:Option<IMAGE_DATA_DIRECTORY>, //The RVA of the value to be stored in the global pointer register. The size member of this structure must be set to zero.
+    pub tls_table:Option<IMAGE_DATA_DIRECTORY>, //The thread local storage (TLS) table address and size. For more information, see The .tls Section.
+    pub load_config_table:Option<IMAGE_DATA_DIRECTORY>, //The load configuration table address and size. For more information, see The Load Configuration Structure (Image Only).
+    pub bound_import:Option<IMAGE_DATA_DIRECTORY>, //The bound import table address and size.
+    pub iat:Option<IMAGE_DATA_DIRECTORY>, //The import address table address and size. For more information, see Import Address Table.
+    pub delay_import_descriptor:Option<IMAGE_DATA_DIRECTORY>, //The delay import descriptor address and size. For more information, see Delay-Load Import Tables (Image Only).
+    pub clr_runtime_header:Option<IMAGE_DATA_DIRECTORY>, //The CLR runtime header address and size. For more information, see The .cormeta Section (Object Only).
+    pub reserved_must_be_zero:Option<IMAGE_DATA_DIRECTORY>, //
 } // 128 bytes
 
 #[repr(C, packed)]

@@ -7,59 +7,72 @@ use rfd::AsyncFileDialog;
 use futures::executor;
 
 use executable::loaded_exe;
+use registers::asm_registers;
 
 mod registers;
 mod executable;
 
-struct running_process{
-    
-
-}
-
 pub struct loaded_file{
     pub name:String,
     pub data:Vec<u8>,
-    //pub process:running_process // this contains all the data to run the process
 }
-impl Iterator for loaded_file{
-    type Item = String;
+impl loaded_file{
+    pub unsafe fn load_file(&self) -> Result<running_process, String> {
+        let loaded: loaded_exe = executable::load_exe(&self.data)?;
+        // we need to config some basic data here
+        let var = asm_registers::new();
+        // we actually should just grab the pointer
+        //var.RIP = 0x8000000000000000 + loaded.header.optional_header.address_of_entry_point; // we use the 0x80.. as an unreachable address
+        // RIP from code insertion point
+        // idk what else
+        return Ok(running_process{name:self.name.to_owned(), exe:loaded, regs:});
+    }
+}
 
+pub struct running_process{
+    name:String,
+    exe:loaded_exe,
+    regs:asm_registers,
+}
+
+pub struct process_result{
+    state:process_result_state,
+    context:Option<String>,
+    //data:Option<Vec<u8>>, // potentially unneeded
+}
+pub enum process_result_state{
+    running,
+    print,
+    breakpoint,
+    warning,
+    error,
+    exit,
+
+    unimplemented, // this refers to loading dll's, reading/writing files. etc
+}
+impl Iterator for running_process{
+    type Item = process_result;
     fn next(&mut self) -> Option<Self::Item> {
-        if self.index < self.data.len() {
-            let result = Some(self.data[self.index]);
-            self.index += 1;
-            result
-        } else {
-            None
-        }
+
+
+        return Some(process_result{state:process_result_state::exit, context:Some("program success".to_owned())});
+    }
+}
+impl running_process{
+    pub fn get_instruction(&self){
+        
+    }
+    pub fn run_instruction(&self){
+
     }
 }
 
-// we have to return the error message or if there was no error then we return null somehow
-pub unsafe fn run_file(file:&loaded_file) -> Option<String> {
+// construct instruction fn
 
-    let var = executable::load_exe(&file.data);
-    if var.is_err(){return Some(var.err().unwrap());}
-    let unwrapped = var.unwrap();
-
-    let poopy1 = unwrapped.header.optional_header.address_of_entry_point;
-    let poopy2 = unwrapped.header.optional_header.base_of_code;
-    let poopy3 = unwrapped.header.optional_header.size_of_code;
-    let poopy4 = unwrapped.header.optional_header.image_base;
-    return Some(format!("{} bytes, {} base address, {} code base, {} code size, {} image base",
-        unwrapped.runtime_data.len(), 
-        poopy1, poopy2, poopy3, poopy4
-    ));
-
-    // run code loop here
-    loop{
+// execute instruction fn
 
 
 
-        break;
-    }
-    return Some("program success".to_owned());
-}
 
 
 // have the fun ction here that runs the code, we have to run all of the code in a single go, idk how programs can run over the span of more than 1 tick

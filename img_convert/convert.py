@@ -13,11 +13,21 @@ def pack_coords(x:int, y:int) -> int:
     return ((x&0b111) << 4) | (y&0b1111)
 
 def fixup_chars(string:str) -> str:
-    if string == "lt": # convert to less than
+    if string == "lt": # less than
         return "<"
-    elif string == "gt": # convert to greater than
+    elif string == "gt": # greater than
         return ">"
-    elif string == "C": # convert to space
+    elif string == "ap": # apostrophe
+        return "\\'"
+    elif string == "cl": # colon
+        return ":"
+    elif string == "dt": # dot/period
+        return "."
+    elif string == "ex": # exclamation mark
+        return "!"
+    elif string == "un": # underscore
+        return "_"
+    elif string == "C": # space
         return " "
     return string
 

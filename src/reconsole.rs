@@ -183,8 +183,14 @@ unsafe fn process_command(line:String){
                 break 'test;
             }
             //
-            let file_output = interpreter::run_file(target_file.unwrap());
-            if file_output.is_some(){output(format!("file error: {}", file_output.unwrap()), 255,0,0);}
+            let file_output = target_file.unwrap().load_file();
+            if file_output.is_err(){
+                output(format!("file error: {}", file_output.err().unwrap()), 255,0,0);
+                break 'test;
+            }
+            let process = file_output.unwrap();
+            output(format!("process {} is now operational", process.name), 0,255,0);
+            
             //
         },
         "dir" => {

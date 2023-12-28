@@ -28,3 +28,12 @@
 
 
 // do all regular opcodes + whatever data they need
+
+
+// prefix bytes // 4-5 bytes??
+// rex byte?
+// opcode bytes // 1-3
+// mod rm // 1 byte
+// sib // 1 byte 
+// displacement // 1-8 bytes
+// immediate // 1-8 bytes

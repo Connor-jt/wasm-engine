@@ -20,24 +20,22 @@ impl loaded_file{
     pub unsafe fn load_file(&self) -> Result<running_process, String> {
         let loaded: loaded_exe = executable::load_exe(&self.data)?;
         // we need to config some basic data here
-        let var = asm_registers::new();
-        // we actually should just grab the pointer
-        //var.RIP = 0x8000000000000000 + loaded.header.optional_header.address_of_entry_point; // we use the 0x80.. as an unreachable address
-        // RIP from code insertion point
+        let mut var = asm_registers::new();
+        var.RIP = loaded.runtime_data.as_ptr().add(loaded.header.optional_header.address_of_entry_point as usize) as u64;
         // idk what else
-        return Ok(running_process{name:self.name.to_owned(), exe:loaded, regs:});
+        return Ok(running_process{name:self.name.to_owned(), exe:loaded, regs:var});
     }
 }
 
 pub struct running_process{
-    name:String,
-    exe:loaded_exe,
-    regs:asm_registers,
+    pub name:String,
+    pub exe:loaded_exe,
+    pub regs:asm_registers,
 }
 
 pub struct process_result{
-    state:process_result_state,
-    context:Option<String>,
+    pub state:process_result_state,
+    pub context:Option<String>,
     //data:Option<Vec<u8>>, // potentially unneeded
 }
 pub enum process_result_state{
@@ -60,7 +58,8 @@ impl Iterator for running_process{
 }
 impl running_process{
     pub fn get_instruction(&self){
-        
+        // prefixes (various length)
+        // 
     }
     pub fn run_instruction(&self){
 

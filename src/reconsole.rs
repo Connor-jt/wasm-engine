@@ -120,6 +120,9 @@ pub unsafe fn input(input:&str) -> bool{
             "ArrowLeft" => {
                 LINE_POS -= 1; verify_LINE_POS(); 
             },
+            "ArrowRight" => {
+                LINE_POS += 1; verify_LINE_POS(); 
+            },
             "Enter" => {
                 commit_line(); 
             },

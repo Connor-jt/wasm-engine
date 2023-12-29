@@ -7,10 +7,11 @@
 // 0xF2 - 'REPNE/REPNZ', also 'BND'
 // 0xF3 - 'REP or REPE/REPZ'
 // 'group 2'
-// 0x2E - 'CS', also 'Branch not taken'
-// 0x36 - 'SS'
-// 0x3E - 'DS', also 'Branch taken'
-// 0x26 - 'ES'
+// supposedly these don't exist in 64 bit mode?
+// // 0x2E - 'CS', also 'Branch not taken'
+// // 0x36 - 'SS'
+// // 0x3E - 'DS', also 'Branch taken'
+// // 0x26 - 'ES'
 // 0x64 - 'FS'
 // 0x65 - 'GS'
 // 'group 3'
@@ -21,7 +22,7 @@
 // do rex thing? (the specifications weren't too clear however)
 
 
-
+// 0x9B - 'wait' ???
 
 // 0x0F - extension opcode?
 

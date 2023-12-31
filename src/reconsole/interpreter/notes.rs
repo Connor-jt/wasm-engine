@@ -38,3 +38,34 @@
 // sib // 1 byte 
 // displacement // 1-8 bytes
 // immediate // 1-8 bytes
+
+enum opperand{
+    none,
+
+}
+
+struct opcode{
+    op1:opperand,
+    op2:opperand,
+    op3:opperand,
+    op4:opperand,
+
+    func:u64, // placeholder function reference
+
+    // error checking stuff
+    has_rm:bool,
+
+    // debug info (we'll have a function to gen)
+    bc1:u8, // byte0
+    bc2:Option<u8>, 
+    bc3:Option<u8>,
+    bc4_reg:Option<u8>, // the 3 bits used in the r/m byte // 0-7
+
+    name:&str,
+}
+
+
+enum operands{
+    test1,
+    test2,
+}

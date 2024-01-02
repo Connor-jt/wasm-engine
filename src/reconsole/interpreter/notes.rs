@@ -39,10 +39,9 @@
 // displacement // 1-8 bytes
 // immediate // 1-8 bytes
 
-enum opperand{
-    none,
 
-}
+
+macro_rules! r_bits{ ($l:tt) => { ($l & 0b00111000) >> 3; }}
 
 struct opcode{
     op1:opperand,
@@ -68,4 +67,15 @@ struct opcode{
 enum operands{
     test1,
     test2,
+}
+
+
+fn get_instruction(byte1:u8, byte2:u8, byte3:u8, byte4:u8) -> i32{
+    match byte1{
+        0 => { return 0}
+        _ => {return -1}
+    }
+
+
+
 }

@@ -80,6 +80,7 @@ impl asm_registers{
             DR0:0, DR1:0, DR2:0, DR3:0, DR4:0, DR5:0, DR6:0, DR7:0
         }
     }
+    
 }
 
 // all getter & setter functions

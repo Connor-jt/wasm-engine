@@ -9,8 +9,10 @@ use futures::executor;
 use executable::loaded_exe;
 use registers::asm_registers;
 
+
 mod registers;
 mod executable;
+mod notes;
 
 pub struct loaded_file{
     pub name:String,

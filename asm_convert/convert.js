@@ -1,11 +1,13 @@
 // script intended to be run in web console for website: http://ref.x86asm.net/coder64.html
 
-
-// generate opcode struct list
+// ## DONE ##
 // generate opcode to struct index function
+
+// ## TODO ##
+// generate opcode struct list  ?? (how the hell do you do that in rust??)
 // generate prefix list
 
-// TODO //
+// ## NOTES ##
 // row_item wrapped in italic means its implicit? bold means its a dest
 // we have to write implicits into comments, and only have explicits be passed into functions or whatever
 
@@ -27,14 +29,20 @@ function generate_struct(){
     object.op3 = null
     object.op4 = null
     object.name = null
+
     object.note = null
     object.aborted = false
+
+    object.has_r = false
     object.has_rm = false
+    object.full_rm = false
     return object
 }
 // output
 let instruction_list = []
 
+const r8_regs = ["AL", "CL", "DL", "BL", "AH", "CH", "DH", "BH"]
+const r16_32_regs = ["eAX", "eCX", "eDX", "eBX", "eSP", "eBP", "eSI", "eDI"]
 
 
 function run(){
@@ -64,8 +72,11 @@ function run(){
                         // increment column index
                         //console.log(row_item)
                         let width = row_item.getAttribute("colspan")
-                        if (width != null) column_index += width
-                        else               column_index += 1
+                        if (width != null) {
+                            column_index += Number(width)
+                            console.log(table_item)
+                        }
+                        else column_index += 1
 
                         // unwrap thing
                         while (value.indexOf('<') > -1 && (col == "op1" || col == "op2" || col == "op3" || col == "op4") ){
@@ -99,31 +110,67 @@ function run(){
                             case "o":
                                 if (value != null) instruction.has_rm = true // we have to track whether the rm is used, so we can properly count bytes or something
                                 if (value != "r") instruction.rm = value; 
+                                else instruction.has_r = true
                                 break
-                            case "mnemonic": if (value != "invalid" && value != "no mnemonic") instruction.name = value; break
-                            case "op1": instruction.op1 = value; break
-                            case "op2": instruction.op2 = value; break
-                            case "op3": instruction.op3 = value; break
-                            case "op4": instruction.op4 = value; break
+                            case "mnemonic": 
+                                //if (instruction.b1 != null && instruction.b1.indexOf("+r") != -1) console.log("found a working one")
+                                if (value != "invalid" && value != "no mnemonic" && value != "undefined" && value != null) instruction.name = filter_name(value); 
+                                else instruction.aborted = value; 
+                                break
+                            case "op1": instruction.op1 = filter_op(value); break
+                            case "op2": instruction.op2 = filter_op(value); break
+                            case "op3": instruction.op3 = filter_op(value); break
+                            case "op4": instruction.op4 = filter_op(value); break
                             case "notes": instruction.note = value; break
                     }}
                     // check if this is a prefix or a instruction
                     if (instruction.pre != null && instruction.b1 == null)
                          prefixes.push(instruction)
-                    else instructions.push(instruction)
+                    else {
+                        // if the opcodes have +r in them, if so then we have to split the instruction up into each respective register version of that opcode
+                        // we then replace the first parameter with either the 16/32 bit or 8 bit register
+                        let is_second_op_byte = (instruction.b2 != null)
+                        let target_byte;
+                        if (is_second_op_byte) target_byte = instruction.b2
+                        else target_byte = instruction.b1
+
+                        if (target_byte.indexOf("+r") > -1){
+                            
+                            // clear values that we do not need
+                            let opcode_number = parseInt(target_byte.slice(0, -2), 16)
+
+                            let regs_array;
+                            if (instruction.op1 == "r8") regs_array = r8_regs
+                            else regs_array = r16_32_regs
+                            for (let reg_index = 0; reg_index < regs_array.length; reg_index++){
+                                // clone
+                                let new_instruction = {}
+                                for (var attr in instruction) new_instruction[attr] = instruction[attr];
+                                // update opcode byte
+                                let updated_opcode_byte = (opcode_number+reg_index).toString(16);
+                                if (is_second_op_byte) new_instruction.b2 = updated_opcode_byte
+                                else new_instruction.b1 = updated_opcode_byte   
+                                // update param[0] register
+                                new_instruction.op1 = regs_array[reg_index]
+                                // then push
+                                instructions.push(new_instruction)
+                            }
+                        } 
+                        else instructions.push(instruction)
+                    }
 
 
             }}
 
     }}
     // list info
-    console.log("opcodes: " + instructions.length)
-    console.log("prefixes: " + prefixes.length)
+    //console.log("opcodes: " + instructions.length)
+    //console.log("prefixes: " + prefixes.length)
 
     // list unique instruction names
     let func_dict = {}
     instructions.forEach(element => {func_dict[element.name] = true})
-    console.log("unqiue instructions: " + Object.keys(func_dict).length)
+    //console.log("unqiue instructions: " + Object.keys(func_dict).length)
 
     // list unique operand types
     let op_dict = {} // <operand, list_index>
@@ -135,12 +182,12 @@ function run(){
         add_op(op_dict, op_list, e.op4)})
     console.log("unique operands: " + Object.keys(op_dict).length)
 
-    let operands_code = "enum operands{\n"
+    let operands_code = "enum operand{\n"
     op_list.forEach((element, index) => {
         operands_code += "   " + element + " = " + index + ",\n"
     });
     operands_code += "}"
-    //console.log(operands_code)
+    console.log(operands_code)
 
     let errored_instructions = []
     // start compiling the instruction tree
@@ -189,12 +236,48 @@ function run(){
         }} else try_append_rm_byte(layer2, e, index)
     });
     // now convert the tree into code
-    let instruction_reader_code = "fn get_instruction(byte1:u8, byte2:u8, byte3:u8, byte4:u8){ -> Option<u32>\n"
-    instruction_reader_code += "   " + recurse_instruction_tree(top_level, 1, false) + "}"
+    let instruction_reader_code = "fn get_instruction_index(byte1:u8, byte2:u8, byte3:u8, byte4:u8) -> Option<u32>{\n"
+    instruction_reader_code += "   " + recurse_instruction_tree(top_level, 1) + "}"
     console.log(instruction_reader_code)
 
-    console.log("rejected instructions: " + errored_instructions.length)
+    //console.log("rejected instructions: " + errored_instructions.length)
     // compile the prefix tree
+
+
+
+    // compile instructions list
+    let instructions_list_code = "lazy_static!{static ref INSTRUCTIONS:Vec<instruction> = vec![\n"
+    for (let i = 0; i < instruction_list.length; i++) {
+        let item = instruction_list[i]
+        if (item.b1 == "0F") continue // dont write this one because it makes a mess + isn't an opcode
+        instructions_list_code += "    instruction{name:\""
+        instructions_list_code += item.name
+        instructions_list_code += "\".to_owned(), params:vec!["
+        // we'd have to update to a list system for this java-script, so we can support the rust list system
+        if (item.op1 != null) instructions_list_code += "operand::" + item.op1 + ","
+        if (item.op2 != null) instructions_list_code += "operand::" + item.op2 + ","
+        if (item.op3 != null) instructions_list_code += "operand::" + item.op3 + ","
+        if (item.op4 != null) instructions_list_code += "operand::" + item.op4 + ","
+        instructions_list_code += "], rm_byte:rm_type::"
+        if (item.has_r) instructions_list_code += "available"
+        else if (item.has_rm == false) instructions_list_code += "none"
+        else if (item.full_rm == false) instructions_list_code += "reg_opcode"
+        else instructions_list_code += "full_opcode"
+        instructions_list_code += ", opc1:"
+        instructions_list_code += "0x" + item.b1
+        instructions_list_code += ", opc2:"
+        if (item.b2 != null )instructions_list_code += "Some(0x" + item.b2 + ")"
+        else instructions_list_code += "None"
+        instructions_list_code += ", opc3:"
+        if (item.b3 != null )instructions_list_code += "Some(0x" + item.b3 + ")"
+        else instructions_list_code += "None"
+        instructions_list_code += ", opc4_reg:"
+        if (item.rm != null )instructions_list_code += "Some(0x" + item.rm + ")"
+        else instructions_list_code += "None"
+        instructions_list_code += "},\n"
+    }
+    instructions_list_code += "];}"
+    console.log(instructions_list_code)
 }
 function recurse_instruction_tree(layer, depth){
     let content = ""
@@ -229,7 +312,7 @@ function recurse_instruction_tree(layer, depth){
 
         let element = layer[key]
         if (Object.keys(element).length > 1){ // this layer has a lower layer
-            if (is_fallback && 1 == 2) {
+            if (is_fallback) {
                 console.log(key)
                 console.log(element)
                 console.log(layer)
@@ -238,7 +321,14 @@ function recurse_instruction_tree(layer, depth){
             }
             
             content += recurse_instruction_tree(element, depth+1)
-        }else content += "return Some(" + element.instruction + ");"
+        }else{
+            content += "return Some(" + element.instruction + ");"
+            if (is_fallback){
+                instruction_list[element.instruction].full_rm = true
+                instruction_list[element.instruction].rm = null
+                //content += "// uses whole rm byte for opcode"
+            }
+        }
         content += "}\n"
     }
     let header = "" //"   ".repeat(depth);
@@ -269,7 +359,15 @@ function try_append_rm_byte(layer, element, index){
         layer[string] = {instruction:index}
     }
 }
-
+function filter_name(name){
+    return name.replace("<i>", "").replace("</i>", "").replace("\n", "")
+}
+let digit_pattern = /\d/; 
+function filter_op(operand){
+    if (operand == "m16/32&amp;16/32") return "m16_32" // not really sure what this one means
+    if (operand[0].match(digit_pattern)) operand = "_" + operand
+    return operand.replace('/', '_').replace('/', '_').replace(':', '_').replace(' ', '_') // yep, we have to double up on the slash check
+}
 function add_op(dict, list, operand){
     if (operand == null) return
     if (!(operand in dict)) {

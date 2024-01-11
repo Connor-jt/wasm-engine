@@ -75,6 +75,25 @@ enum rm_type{
     full_opcode = 3
 }
 
+enum prefixes{
+	rex_b = 1, //0x41: REX.B //Extension of r/m field, base field, or opcode reg field
+	rex_x = 2, //0x42: REX.X //Extension of SIB index field
+	rex_r = 4, //0x44: REX.R //Extension of ModR/M reg field
+	rex_w = 8, //0x48: REX.W //64 Bit Operand Size
+	fs = 16, //0x64: FS //FS segment override prefix
+	gs = 32, //0x65: GS //GS segment override prefix
+	operand_size = 64, //0x66: no mnemonic //Operand-size override prefix & Precision-size override prefix
+	address_size = 128, //0x67: no mnemonic //Address-size override prefix
+	wait = 256, //0x9B: no mnemonic //Wait Prefix
+	lock = 512, //0xF0: LOCK //Assert LOCK# Signal Prefix
+	repnz = 1024, //0xF2: REPNZ //Repeat String Operation Prefix
+	// 0xF2: REP //Repeat String Operation Prefix
+	// 0xF2: no mnemonic //Scalar Double-precision Prefix
+	repz = 2048, //0xF3: REPZ //Repeat String Operation Prefix
+	// 0xF3: REP //Repeat String Operation Prefix
+	// 0xF3: no mnemonic //Scalar Single-precision Prefix
+}
+
 // /////////////////////////////////////////////// //
 // WARNING: CODE BELOW IS AUTOMATICALLY GENERATED //
 // ///////////////////////////////////////////// //

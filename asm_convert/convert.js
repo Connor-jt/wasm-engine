@@ -278,6 +278,15 @@ function run(){
     }
     instructions_list_code += "];}"
     console.log(instructions_list_code)
+
+    //
+    let prefixes_list = ""
+    for (let i = 0; i < prefixes.length; i++){
+        let curr_prefix = prefixes[i]
+        console.log(curr_prefix)
+        prefixes_list += "0x" + curr_prefix.pre + ": " + curr_prefix.name + " //" + curr_prefix.note +"\n"
+    }
+    console.log(prefixes_list)
 }
 function recurse_instruction_tree(layer, depth){
     let content = ""

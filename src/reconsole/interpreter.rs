@@ -62,18 +62,23 @@ impl running_process{
     pub fn get_instruction(&self){
         // prefixes (various length)
         // 
+
+        // read RIP pointer and get first 3 bytes?
+        
+        // then read any required, RM byte, SIB, imm, imm8/16/32/64, offs8/16/32/64
     }
     pub fn run_instruction(&self){
 
     }
 }
 
-// construct instruction fn
+fn print_instruction(){
 
-// execute instruction fn
+}
 
+fn print_operand(){
 
-
+}
 
 
 // have the fun ction here that runs the code, we have to run all of the code in a single go, idk how programs can run over the span of more than 1 tick

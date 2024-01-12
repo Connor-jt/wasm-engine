@@ -114,7 +114,7 @@ function run(){
                                 break
                             case "mnemonic": 
                                 //if (instruction.b1 != null && instruction.b1.indexOf("+r") != -1) console.log("found a working one")
-                                if (value != "invalid" && value != "no mnemonic" && value != "undefined" && value != null) instruction.name = filter_name(value); 
+                                if (value != "invalid" && value != "<i>invalid</i>" &&  value != "no mnemonic" && value != "undefined" && value != null) instruction.name = filter_name(value); 
                                 else instruction.aborted = value; 
                                 break
                             case "op1": instruction.op1 = filter_op(value); break
@@ -164,13 +164,10 @@ function run(){
 
     }}
     // list info
-    //console.log("opcodes: " + instructions.length)
-    //console.log("prefixes: " + prefixes.length)
 
     // list unique instruction names
     let func_dict = {}
     instructions.forEach(element => {func_dict[element.name] = true})
-    //console.log("unqiue instructions: " + Object.keys(func_dict).length)
 
     // list unique operand types
     let op_dict = {} // <operand, list_index>
@@ -180,14 +177,12 @@ function run(){
         add_op(op_dict, op_list, e.op2)
         add_op(op_dict, op_list, e.op3)
         add_op(op_dict, op_list, e.op4)})
-    console.log("unique operands: " + Object.keys(op_dict).length)
 
     let operands_code = "enum operand{\n"
     op_list.forEach((element, index) => {
         operands_code += "   " + element + " = " + index + ",\n"
     });
     operands_code += "}"
-    console.log(operands_code)
 
     let errored_instructions = []
     // start compiling the instruction tree
@@ -198,7 +193,7 @@ function run(){
             throw "bad element, has no byte1"
 
         }
-        if (e.pre != null || e.aborted == true){
+        if (e.pre != null || e.aborted != false){
             errored_instructions.push(e)
             return // skip iteration as this one creates problems with our current system
         }
@@ -236,11 +231,9 @@ function run(){
         }} else try_append_rm_byte(layer2, e, index)
     });
     // now convert the tree into code
-    let instruction_reader_code = "fn get_instruction_index(byte1:u8, byte2:u8, byte3:u8, byte4:u8) -> Option<u32>{\n"
+    let instruction_reader_code = "fn get_instruction_index(byte1:u8, byte2:u8, byte3:u8) -> Option<u32>{\n"
     instruction_reader_code += "   " + recurse_instruction_tree(top_level, 1) + "}"
-    console.log(instruction_reader_code)
 
-    //console.log("rejected instructions: " + errored_instructions.length)
     // compile the prefix tree
 
 
@@ -249,7 +242,10 @@ function run(){
     let instructions_list_code = "lazy_static!{static ref INSTRUCTIONS:Vec<instruction> = vec![\n"
     for (let i = 0; i < instruction_list.length; i++) {
         let item = instruction_list[i]
-        if (item.b1 == "0F") continue // dont write this one because it makes a mess + isn't an opcode
+        // we cant skip any things
+        //if (item.b1 == "0F") continue // dont write this one because it makes a mess + isn't an opcode
+        if (item.name[0] == '<') item.name = "_0F" // better fix?
+
         instructions_list_code += "    instruction{name:\""
         instructions_list_code += item.name
         instructions_list_code += "\".to_owned(), params:vec!["
@@ -263,6 +259,13 @@ function run(){
         else if (item.has_rm == false) instructions_list_code += "none"
         else if (item.full_rm == false) instructions_list_code += "reg_opcode"
         else instructions_list_code += "full_opcode"
+        // figure out the opcode length
+        let byte_count = 1
+        if (item.b2 != null) byte_count += 1
+        if (item.b3 != null) byte_count += 1
+        if (item.has_r) byte_count += 1
+        instructions_list_code += ", opc_length:" + byte_count
+
         instructions_list_code += ", opc1:"
         instructions_list_code += "0x" + item.b1
         instructions_list_code += ", opc2:"
@@ -277,16 +280,27 @@ function run(){
         instructions_list_code += "},\n"
     }
     instructions_list_code += "];}"
-    console.log(instructions_list_code)
-
     //
     let prefixes_list = ""
     for (let i = 0; i < prefixes.length; i++){
         let curr_prefix = prefixes[i]
-        console.log(curr_prefix)
+        //console.log(curr_prefix)
         prefixes_list += "0x" + curr_prefix.pre + ": " + curr_prefix.name + " //" + curr_prefix.note +"\n"
     }
-    console.log(prefixes_list)
+
+    // OUT REGULAR INFO //
+    console.log(operands_code)
+    console.log(instruction_reader_code)
+    console.log(instructions_list_code)
+    //console.log(prefixes_list)
+
+    // DEBUG INFO //
+    console.log("instructions: " + instructions.length)
+    console.log("unqiue instructions: " + Object.keys(func_dict).length)
+    console.log("total printed instructions: " + instruction_list.length)
+    console.log("prefixes: " + prefixes.length)
+    console.log("unique operands: " + Object.keys(op_dict).length)
+    console.log("rejected instructions: " + errored_instructions.length)
 }
 function recurse_instruction_tree(layer, depth){
     let content = ""
@@ -375,7 +389,7 @@ let digit_pattern = /\d/;
 function filter_op(operand){
     if (operand == "m16/32&amp;16/32") return "m16_32" // not really sure what this one means
     if (operand[0].match(digit_pattern)) operand = "_" + operand
-    return operand.replace('/', '_').replace('/', '_').replace(':', '_').replace(' ', '_') // yep, we have to double up on the slash check
+    return operand.replace('/', '_').replace('/', '_').replace('/', '_').replace(':', '_').replace(' ', '_') // yep, we have to double up on the slash check
 }
 function add_op(dict, list, operand){
     if (operand == null) return

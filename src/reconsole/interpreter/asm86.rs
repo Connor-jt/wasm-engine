@@ -44,8 +44,9 @@
 // ACTUAL CODE BELOW //
 // //////////////// //
 
-
+//#[macro_export]
 macro_rules! r_bits{ ($l:tt) => { ($l & 0b00111000) >> 3; }}
+//pub(crate) use r_bits;
 
 // just to save some text space
 pub fn get_instruction(byte1:u8, byte2:u8, byte3:u8) -> Option<&'static instruction>{
@@ -77,6 +78,7 @@ enum rm_type{
 }
 
 pub enum prefixes{ // u16
+   rex = 4096, // 0x40: REX // rex generic, which upgrades some registers in the r8 ModR/M byte
 	rex_b = 1, //0x41: REX.B //Extension of r/m field, base field, or opcode reg field
 	rex_x = 2, //0x42: REX.X //Extension of SIB index field
 	rex_r = 4, //0x44: REX.R //Extension of ModR/M reg field

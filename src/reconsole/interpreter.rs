@@ -62,10 +62,10 @@ impl Iterator for running_process{
     }
 }
 impl running_process{
-    pub unsafe fn read_byte(&self, address:u64) -> u8 {
-        let pointer = address as *const u8;
-        return *pointer;
-    }
+    pub unsafe fn read_byte(&self, address:u64) -> u8 {*(address as *const u8)}
+    pub unsafe fn read_sbyte(&self, address:u64) -> i8 {*(address as *const i8)}
+    pub unsafe fn read_sdword(&self, address:u64) -> i32 {*(address as *const i32)}
+
     pub unsafe fn get_prefix(&mut self) -> u16 {
         let mut curr_prefix:u16 = 0;
         loop{
@@ -163,6 +163,84 @@ impl running_process{
     }
     unsafe fn print_reg_short(&self, _type:reg_type, prefix:u16, rmoffs:u64) -> &'static str{
         return print_register_operand((self.read_byte(rmoffs)>>3)&7, _type, prefix&(asm86::prefixes::rex_r as u16)!=0);
+    }
+    unsafe fn print_rm_operand(&mut self, mut data:u8, data_type:reg_type, prefix:u16) -> &'static str{
+        // read mod bits
+        let mod_bits = data >> 5;
+        let rm_bits:u8 = data & 0b111;
+        let use_extension_set = (prefix & (asm86::prefixes::rex_b as u16)) != 0;
+        let demote_rm_reg = (prefix & (asm86::prefixes::operand_size as u16)) != 0;
+    
+        if mod_bits == 3{
+            return print_register_operand(rm_bits, data_type, use_extension_set);}
+        let reg:&str;
+        let disp:String;
+        match rm_bits{
+            0 => {
+                if use_extension_set{
+                    if demote_rm_reg{ reg = "R8D";} 
+                    else {reg = "R8";}} 
+                else {
+                    if demote_rm_reg{ reg = "EAX";} 
+                    else {reg = "RAX";}}}
+            1 => {
+                if use_extension_set{
+                    if demote_rm_reg{ reg = "R9D";} 
+                    else {reg = "R9";}} 
+                else {
+                    if demote_rm_reg{ reg = "ECX";} 
+                    else {reg = "RCX";}}}
+            2 => {
+                if use_extension_set{
+                    if demote_rm_reg{ reg = "R10D";} 
+                    else {reg = "R10";}} 
+                else {
+                    if demote_rm_reg{ reg = "EDX";} 
+                    else {reg = "RDX";}}}
+            3 => {
+                if use_extension_set{
+                    if demote_rm_reg{ reg = "R11D";} 
+                    else {reg = "R11";}} 
+                else {
+                    if demote_rm_reg{ reg = "EBX";} 
+                    else {reg = "RBX";}}}
+            5 => { // works differently for Mod 0b00
+                // NOTE: lets just ignore the proper way to do this (RIP/EIP + disp32)
+                if mod_bits == 0 {
+                    let result = self.read_sdword(self.regs.RIP);
+                    self.regs.RIP += 4;
+                    // convert to number and pop into string
+                    disp = "offs:" + result.to_string();
+                }else {
+                    if use_extension_set{
+                        if demote_rm_reg{ reg = "R13D";} 
+                        else {reg = "R13";}} 
+                    else {
+                        if demote_rm_reg{ reg = "EBP";} 
+                        else {reg = "RBP";}}}}
+            6 => {
+                if use_extension_set{
+                    if demote_rm_reg{ reg = "R14D";} 
+                    else {reg = "R14";}} 
+                else {
+                    if demote_rm_reg{ reg = "ESI";} 
+                    else {reg = "RSI";}}}
+            7 => {
+                if use_extension_set{
+                    if demote_rm_reg{ reg = "R15D";} 
+                    else {reg = "R15";}} 
+                else {
+                    if demote_rm_reg{ reg = "EDI";} 
+                    else {reg = "RDI";}}}
+            4 => { // SIB BYTE
+    
+    
+    
+            } 
+        }
+        // then we have to apply the displacement if mod is 0b01 || 0b10
+    
+        return reg; // placeholder
     }
 }
 
@@ -313,9 +391,8 @@ fn print_register_operand(mut data:u8, data_type:reg_type, use_extension_set:boo
     }
 }
 
-fn print_rm_operand(mut data:u8, data_type:reg_type, prefix:u16) -> &'static str{
-    
-}
+
+
 
 // have the fun ction here that runs the code, we have to run all of the code in a single go, idk how programs can run over the span of more than 1 tick
 

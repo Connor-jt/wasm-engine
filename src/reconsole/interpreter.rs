@@ -15,7 +15,7 @@ use registers::asm_registers;
 mod registers;
 mod executable;
 mod asm86;
-use asm86::r_bits;
+//use asm86::r_bits;
 
 pub struct loaded_file{
     pub name:String,
@@ -55,21 +55,23 @@ pub enum process_result_state{
 }
 impl Iterator for running_process{
     type Item = process_result;
-    fn next(&mut self) -> Self::Item {
+    fn next(&mut self) -> Option<Self::Item> {
 
 
-        return process_result{state:process_result_state::exit, context:Some("program success".to_owned())};
+        return Some(process_result{state:process_result_state::exit, context:Some("program success".to_owned())});
     }
 }
 impl running_process{
-    pub unsafe fn read_byte(&self, address:u64) -> u8 {*(address as *const u8)}
-    pub unsafe fn read_sbyte(&self, address:u64) -> i8 {*(address as *const i8)}
-    pub unsafe fn read_sdword(&self, address:u64) -> i32 {*(address as *const i32)}
+    pub unsafe fn read_byte(&self, address:u64) -> u8 {*(address.to_owned() as *const u8)}
+    pub unsafe fn read_sbyte(&self, address:u64) -> i8 {*(address.to_owned() as *const i8)}
+    pub unsafe fn read_dword(&self, address:u64) -> u32 {*(address.to_owned() as *const u32)}
+    pub unsafe fn read_sdword(&self, address:u64) -> i32 {*(address.to_owned() as *const i32)}
 
     pub unsafe fn get_prefix(&mut self) -> u16 {
         let mut curr_prefix:u16 = 0;
         loop{
-            let curr_byte = self.read_byte(self.regs.RIP);
+            let poopy_test = self.regs.RIP;
+            let curr_byte = self.read_byte(poopy_test);
             // if it falls within the rex prefix range, then we just take the rex prefix and pop it in ours
             if (curr_byte > 0x40 && curr_byte < 0x50){
                 curr_prefix |= asm86::prefixes::rex as u16; // assign generic REX type, next wont do anything if rex is 0x40
@@ -93,7 +95,9 @@ impl running_process{
     pub unsafe fn get_instruction(&self) -> Option<&asm86::instruction>{
         // prefixes (various length)
         // read RIP pointer and get first 3 bytes?
-        let result = asm86::get_instruction(self.read_byte(self.regs.RIP), self.read_byte(self.regs.RIP+1), self.read_byte(self.regs.RIP+2));
+        let poopy_test = self.regs.RIP;
+        let result = asm86::get_instruction(self.read_byte(poopy_test), self.read_byte(poopy_test+1), self.read_byte(poopy_test+2));
+        
         // then read any required, RM byte, SIB, disp8/16/32/64, imm8/16/32/64
         // we need to push the RIP pointer by the size of the instruction without RM?????
         // if the instruction doesn't have a ModR/M parameter but does use the rm reg, then we do need to count it
@@ -105,11 +109,11 @@ impl running_process{
     }
     pub unsafe fn print_instruction(&mut self) -> process_result{
 
-        let prefix = self.get_prefix();
+        let prefix: u16 = self.get_prefix();
         let ins_result = self.get_instruction();
         if (ins_result.is_none()){ return process_result{state:process_result_state::error, context: Some("invalid/unsupported instruction".to_owned())};}
 
-        let instruction = ins_result.unwrap();
+        let instruction = ins_result.unwrap().to_owned();
         self.regs.RIP += (instruction.opc_length) as u64;
 
         let printed_instruction = instruction.name.to_owned();
@@ -162,9 +166,9 @@ impl running_process{
         return process_result{state:process_result_state::error, context: Some("unexpected return".to_owned())};
     }
     unsafe fn print_reg_short(&self, _type:reg_type, prefix:u16, rmoffs:u64) -> &'static str{
-        return print_register_operand((self.read_byte(rmoffs)>>3)&7, _type, prefix&(asm86::prefixes::rex_r as u16)!=0);
+        return print_register_operand((self.read_byte(rmoffs)>>3)&0b111, _type, prefix&(asm86::prefixes::rex_r as u16)!=0);
     }
-    unsafe fn print_rm_operand(&mut self, mut data:u8, data_type:reg_type, prefix:u16) -> &'static str{
+    unsafe fn print_rm_operand(&mut self, data:u8, data_type:reg_type, prefix:u16) -> String{
         // read mod bits
         let mod_bits = data >> 5;
         let rm_bits:u8 = data & 0b111;
@@ -172,78 +176,69 @@ impl running_process{
         let demote_rm_reg = (prefix & (asm86::prefixes::operand_size as u16)) != 0;
     
         if mod_bits == 3{
-            return print_register_operand(rm_bits, data_type, use_extension_set);}
-        let reg:&str;
-        let disp:String;
-        let sib:String;
-        match rm_bits{
-            0 => {
-                if use_extension_set{
-                    if demote_rm_reg{ reg = "R8D";} 
-                    else {reg = "R8";}} 
-                else {
-                    if demote_rm_reg{ reg = "EAX";} 
-                    else {reg = "RAX";}}}
-            1 => {
-                if use_extension_set{
-                    if demote_rm_reg{ reg = "R9D";} 
-                    else {reg = "R9";}} 
-                else {
-                    if demote_rm_reg{ reg = "ECX";} 
-                    else {reg = "RCX";}}}
-            2 => {
-                if use_extension_set{
-                    if demote_rm_reg{ reg = "R10D";} 
-                    else {reg = "R10";}} 
-                else {
-                    if demote_rm_reg{ reg = "EDX";} 
-                    else {reg = "RDX";}}}
-            3 => {
-                if use_extension_set{
-                    if demote_rm_reg{ reg = "R11D";} 
-                    else {reg = "R11";}} 
-                else {
-                    if demote_rm_reg{ reg = "EBX";} 
-                    else {reg = "RBX";}}}
-            5 => { // works differently for Mod 0b00
-                // NOTE: lets just ignore the proper way to do this (RIP/EIP + disp32)
-                if mod_bits == 0 {
-                    let result = self.read_sdword(self.regs.RIP);
-                    self.regs.RIP += 4;
-                    // convert to number and pop into string
-                    disp = "offs:" + result.to_string();
-                }else {
-                    if use_extension_set{
-                        if demote_rm_reg{ reg = "R13D";} 
-                        else {reg = "R13";}} 
-                    else {
-                        if demote_rm_reg{ reg = "EBP";} 
-                        else {reg = "RBP";}}}}
-            6 => {
-                if use_extension_set{
-                    if demote_rm_reg{ reg = "R14D";} 
-                    else {reg = "R14";}} 
-                else {
-                    if demote_rm_reg{ reg = "ESI";} 
-                    else {reg = "RSI";}}}
-            7 => {
-                if use_extension_set{
-                    if demote_rm_reg{ reg = "R15D";} 
-                    else {reg = "R15";}} 
-                else {
-                    if demote_rm_reg{ reg = "EDI";} 
-                    else {reg = "RDI";}}}
-            4 => { // SIB BYTE
-                let sib_reg:&str;
-                let sib_multiplier:&str;
-                let sib_base:&str; // this can be a displacement
-    
-    
-            } 
-        }
+            return print_register_operand(rm_bits, data_type, use_extension_set).to_owned();}
+        
+        let reg:String;
+        let mut disp:Option<String> = None;
+
+        if rm_bits == 5 && mod_bits == 0{ // relative offset
+            disp = Some(self.read_sdword(self.regs.RIP).to_string());
+            self.regs.RIP += 4;
+            if demote_rm_reg{ reg = "EIP".to_owned();} 
+            else {reg = "RIP".to_owned();}} 
+        else if rm_bits == 4{ // SIB byte
+            let sib_base:String; // this can be a displacement
+            let sib_reg:Option<&str>;
+            let sib_multiplier:Option<&str>;
+
+            let sib_data = self.read_byte(self.regs.RIP);
+            self.regs.RIP += 1;
+
+            let sib_base_bits = sib_data & 0b111;
+            let sib_reg_bits: u8 = (sib_data >> 3) & 0b111;
+            let use_sib_reg_extension = (prefix & (asm86::prefixes::rex_x as u16)) != 0;
+
+            // match sib SS
+            match sib_data >> 6{
+                0 => {sib_multiplier = None;}
+                1 => {sib_multiplier = Some("*2");}
+                2 => {sib_multiplier = Some("*4");}
+                3 => {sib_multiplier = Some("*8");}
+                _ => {sib_multiplier = None;}} // error
+            // match sib base
+            if mod_bits == 0 && sib_base_bits == 5 { // then its a baseless displacement
+                sib_base = self.read_dword(self.regs.RIP).to_string();
+                self.regs.RIP += 4;}
+            else {
+                if demote_rm_reg {sib_base = print_register_operand(sib_base_bits, reg_type::r32, use_extension_set).to_owned();}
+                else {sib_base = print_register_operand(sib_base_bits, reg_type::r64, use_extension_set).to_owned();}}
+            // match sib reg
+            if (sib_reg_bits == 4){ 
+                sib_reg = None;} // RSP is replaced with the option for 'none'
+            else{ 
+                if demote_rm_reg { sib_reg = Some(print_register_operand(sib_reg_bits, reg_type::r32, use_sib_reg_extension));}
+                else { sib_reg = Some(print_register_operand(sib_reg_bits, reg_type::r64, use_sib_reg_extension));}}
+            
+            // resolve stuff into reg string
+            if sib_reg.is_some(){reg = sib_base + " + " + sib_reg.unwrap() + sib_multiplier.unwrap()}
+            else {reg = sib_base}
+
+        }else { // regular register
+            if demote_rm_reg {reg = print_register_operand(rm_bits, reg_type::r32, use_extension_set).to_owned();}
+            else {reg = print_register_operand(rm_bits, reg_type::r64, use_extension_set).to_owned();}}
+
         // then we have to apply the displacement if mod is 0b01 || 0b10
-    
-        return reg; // placeholder
+        if mod_bits == 1{
+            disp = Some(self.read_sbyte(self.regs.RIP).to_string());
+            self.regs.RIP += 1;}
+        else if mod_bits == 2{
+            disp = Some(self.read_sdword(self.regs.RIP).to_string());
+            self.regs.RIP += 4;}
+        
+        let final_string:String;
+        if disp.is_none(){ final_string = reg_type_string(data_type).to_owned()+" ptr ["+&reg+" + "+&disp.unwrap()+"]";} 
+        else{              final_string = reg_type_string(data_type).to_owned()+" ptr ["+&reg+"]";}
+        return final_string; // placeholder
     }
 }
 
@@ -258,6 +253,20 @@ enum reg_type{
     sreg,
     // eee, // unsure how this one is supposed to work
 }
+fn reg_type_string(data_type:reg_type) -> &'static str{
+    match data_type{
+        reg_type::r8 => "byte",
+        reg_type::r16 => "word",
+        reg_type::r32 => "dword",
+        reg_type::r64 => "qword",
+        reg_type::mm => "mm",
+        reg_type::xmm => "xmm",
+        reg_type::sreg => "sreg",
+
+        reg_type::r8_rex => "ERROR",
+    }
+}
+
 fn print_register_operand(mut data:u8, data_type:reg_type, use_extension_set:bool) -> &'static str{
     if data > 7 {return "ERROR:overflow"}
     if use_extension_set {data |= 8} // extend the bit

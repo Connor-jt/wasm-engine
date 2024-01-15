@@ -175,6 +175,7 @@ impl running_process{
             return print_register_operand(rm_bits, data_type, use_extension_set);}
         let reg:&str;
         let disp:String;
+        let sib:String;
         match rm_bits{
             0 => {
                 if use_extension_set{
@@ -233,7 +234,9 @@ impl running_process{
                     if demote_rm_reg{ reg = "EDI";} 
                     else {reg = "RDI";}}}
             4 => { // SIB BYTE
-    
+                let sib_reg:&str;
+                let sib_multiplier:&str;
+                let sib_base:&str; // this can be a displacement
     
     
             } 

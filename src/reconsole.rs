@@ -223,7 +223,7 @@ unsafe fn process_command(line:String){
             
             // then  we just run the instructions
             for i in 0..instruction_count{
-                process.curr_address = 0; 
+                //process.curr_address = 0; 
                 let test = process.run_single();
                 if test.is_none(){
                     output("failed instruction".to_owned(), 255,0,0);

@@ -237,14 +237,19 @@ function run(){
     // compile the prefix tree
 
 
-
+    const max_entries_per_list = 50
     // compile instructions list
-    let instructions_list_code = "lazy_static!{static ref INSTRUCTIONS:Vec<instruction> = vec![\n"
+    let instructions_list_code = "lazy_static!{static ref INSTRUCTIONS_SEG0:Vec<instruction> = vec![\n"
     for (let i = 0; i < instruction_list.length; i++) {
         let item = instruction_list[i]
         // we cant skip any things
         //if (item.b1 == "0F") continue // dont write this one because it makes a mess + isn't an opcode
         if (item.name[0] == '<') item.name = "_0F" // better fix?
+
+        if (i != 0 && i % max_entries_per_list == 0){
+            instructions_list_code += "];}\n"
+            instructions_list_code += "lazy_static!{static ref INSTRUCTIONS_SEG" + (i/max_entries_per_list) + ":Vec<instruction> = vec![\n"
+        }
 
         instructions_list_code += "    instruction{name:\""
         instructions_list_code += item.name
@@ -263,7 +268,7 @@ function run(){
         let byte_count = 1
         if (item.b2 != null) byte_count += 1
         if (item.b3 != null) byte_count += 1
-        if (item.has_r) byte_count += 1
+        if (item.has_r || item.has_rm) byte_count += 1
         instructions_list_code += ", opc_length:" + byte_count
 
         instructions_list_code += ", opc1:"
@@ -280,6 +285,12 @@ function run(){
         instructions_list_code += "},\n"
     }
     instructions_list_code += "];}"
+
+    let instructions_segment_code = "   match index/" + max_entries_per_list + "{\n"
+    for (let i = 0; i < instruction_list.length/max_entries_per_list; i++)
+        instructions_segment_code += "      "+i+" => {return Some(&INSTRUCTIONS_SEG"+i+"[(index%"+max_entries_per_list+") as usize]);},\n"
+    instructions_segment_code += "      _ => {return None;}}"
+
     //
     let prefixes_list = ""
     for (let i = 0; i < prefixes.length; i++){
@@ -289,9 +300,10 @@ function run(){
     }
 
     // OUT REGULAR INFO //
-    console.log(operands_code)
-    console.log(instruction_reader_code)
+    //console.log(operands_code)
+    //console.log(instruction_reader_code)
     console.log(instructions_list_code)
+    //console.log(instructions_segment_code)
     //console.log(prefixes_list)
 
     // DEBUG INFO //

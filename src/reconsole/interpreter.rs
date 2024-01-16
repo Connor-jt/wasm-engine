@@ -59,21 +59,21 @@ pub struct running_process{
 
 //     unimplemented, // this refers to loading dll's, reading/writing files. etc
 // }
-impl Iterator for running_process{
-    type Item = String;
-    fn next(&mut self) -> Option<Self::Item> {
-        unsafe { // apparently this function is not allowed to be unsafe, thanks john rust
-            proc_address = self.curr_address;
-            // run thing
-            let result = self.print_instruction();
-            // update process pointer
-            self.curr_address = proc_address; 
-            return result;
-}}}
+// impl Iterator for running_process{
+//     type Item = String;
+//     fn next(&mut self) -> Option<Self::Item> {
+//         unsafe { // apparently this function is not allowed to be unsafe, thanks john rust
+//             proc_address = self.curr_address;
+//             // run thing
+//             let result = self.print_instruction();
+//             // update process pointer
+//             self.curr_address = proc_address; 
+//             return result;
+// }}}
 impl running_process{
     pub unsafe fn run_single(&mut self) ->Option<String>{
         proc_address = self.curr_address;
-        let result = self.print_instruction();
+        let result: Option<String> = self.print_instruction();
         self.curr_address = proc_address; 
         return result;
     }
@@ -83,7 +83,8 @@ impl running_process{
     pub unsafe fn read_word(&self, address:u64) -> u16 {*(address.to_owned() as *const u16)}
     pub unsafe fn read_sword(&self, address:u64) -> i16 {*(address.to_owned() as *const i16)}
     pub unsafe fn read_dword(&self, address:u64) -> u32 {*(address.to_owned() as *const u32)}
-    pub unsafe fn read_sdword(&self, address:u64) -> i32 {*(address.to_owned() as *const i32)}
+    //pub unsafe fn read_sdword(&self, address:u64) -> i32 {*(address.to_owned() as *const i32)}
+    pub unsafe fn read_sdword(&self, address:u64) -> i32 {0}
     pub unsafe fn read_qword(&self, address:u64) -> u64 {*(address.to_owned() as *const u64)}
 
     pub unsafe fn get_prefix(&self) -> u16 {
@@ -125,7 +126,7 @@ impl running_process{
     // }
     pub unsafe fn print_instruction(&self) -> Option<String>{
         let mut starting_offset = proc_address; // mut because we reuse it to count upwards to our current address to get all the operand bytes
-        let prefix = 0; //self.get_prefix();
+        let prefix = self.get_prefix();
         let ins_result = self.get_instruction();
         if (ins_result.is_none()){ return None;}
         let instruction = ins_result.unwrap().to_owned();
@@ -235,10 +236,10 @@ impl running_process{
                 asm86::operand::rel16_32 => {
                     if prefix & (asm86::prefixes::rex_w as u16) != 0{ // 16bit
                         operand_string = "RIP+".to_owned() + &(self.read_sword(proc_address).to_string());
-                        proc_address += 1;} 
+                        proc_address += 2;} 
                     else {
                         operand_string = "RIP+".to_owned() + &(self.read_sdword(proc_address).to_string());
-                        proc_address += 1;}},
+                        proc_address += 4;}},
                 // moffs imm's
                 asm86::operand::moffs8 => {
                     let num:String;
@@ -347,11 +348,11 @@ impl running_process{
             is_first = false;
         }
         // we want to write in the line of the instruction and the instruction bytes
-        let mut instruction_info = format!("{:x}", starting_offset) + " | ";
+        let mut instruction_info = format!("{:0>16}", format!("{:x}", starting_offset)) + " _ ";
         while starting_offset < proc_address{
-            instruction_info += &format!("{:x} ", self.read_byte(starting_offset));
+            instruction_info += &format!("{:0>2} ", format!("{:x}", self.read_byte(starting_offset)));
             starting_offset += 1;}
-        instruction_info += "| ";
+        instruction_info += "_ ";
         // combine header and stuff into results
         return Some(instruction_info + &printed_instruction);
     }
@@ -426,7 +427,7 @@ impl running_process{
             proc_address += 4;}
         
         let final_string:String;
-        if disp.is_none(){ final_string = reg_type_string(data_type).to_owned()+" ptr ["+&reg+" + "+&disp.unwrap()+"]";} 
+        if disp.is_some(){ final_string = reg_type_string(data_type).to_owned()+" ptr ["+&reg+" + "+&disp.unwrap()+"]";} 
         else{              final_string = reg_type_string(data_type).to_owned()+" ptr ["+&reg+"]";}
         return final_string; // placeholder
     }

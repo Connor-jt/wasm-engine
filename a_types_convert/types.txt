@@ -1,0 +1,115 @@
+
+
+
+XMM0 = 99,
+
+// these all have undefined lengths, so we cant properly resolve these
+rAX = 6,
+eAX = 8,
+eCX = 9,
+eDX = 10,
+eBX = 11,
+eSP = 12,
+eBP = 13,
+eSI = 14,
+eDI = 15,
+
+rCX = 60,
+rBP = 42,
+rDX = 63,
+
+// these are easy
+AL = 4,
+CL = 34,
+DL = 35,
+BL = 36,
+CH = 37,
+DH = 38,
+BH = 39,
+AH = 30,
+
+AX = 28,
+DX = 19,
+
+EDX = 70,
+EAX = 71,
+ECX = 61,
+
+RSP = 96,
+RCX = 76,
+
+R11 = 77,
+
+// these are all implicits??
+m = 24,
+m8 = 18,
+m16 = 20,
+m16_32 = 21,
+m16_32_64 = 33,
+m32 = 98,
+m32_64 = 105,
+m64 = 85,
+m128 = 91,
+m512 = 102,
+m16_16_32_64 = 65,
+
+
+// not always properly resolvable? as it exists on the RM reg bits, but the few things that use that also use that data for other registers
+Sreg = 23,
+
+// implict 1 or 3
+_1 = 45,
+_3 = 43,
+
+Flags = 29,
+eFlags = 44,
+EFlags = 80,
+
+// potentally all implicits
+m14_28 = 51,
+m94_108 = 57,
+
+m16int = 58,
+m32int = 52,
+m64int = 55,
+m80dec = 59,
+m32real = 47,
+m80real = 53,
+m64real = 54,
+
+ST = 46,
+STi = 50,
+STi_m32real = 48,
+ST1 = 49,
+ST2 = 56,
+
+// these are probably all implicit
+
+SS = 78,
+GS = 74,
+FS = 100,
+
+
+LDTR = 66,
+TR = 67,
+GDTR = 68,
+IDTR = 69,
+XCR = 72,
+MSW = 73,
+MSR = 93,
+PMC = 95,
+
+CR0 = 79,
+
+CRn = 87,
+DRn = 88,
+
+IA32_KERNEL_GSBASE = 75,
+IA32_TIME_STAMP_COUNTER = 94,
+IA32_SYSENTER_CS = 97,
+IA32_BIOS_SIGN_ID = 101,
+
+
+// unused
+r = 103,
+r_m = 104,

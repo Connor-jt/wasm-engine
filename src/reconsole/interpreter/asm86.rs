@@ -70,7 +70,7 @@ pub struct instruction{
     // we also need the prefix byte, but i dont think we're going to support that for this implementation
 }
 
-enum rm_type{
+pub enum rm_type{
     none = 0,
     available = 1,
     reg_opcode = 2,
@@ -210,6 +210,10 @@ pub enum operand{
    m32_64 = 105,
 }
 
+
+// fn get_instruction_index(byte1:u8, byte2:u8, byte3:u8) -> Option<u32>{
+//    return Some(13);
+// }
 fn get_instruction_index(byte1:u8, byte2:u8, byte3:u8) -> Option<u32>{
    match byte1{
       0x10 => {return Some(13);}
@@ -1005,7 +1009,8 @@ fn get_instruction_index(byte1:u8, byte2:u8, byte3:u8) -> Option<u32>{
          _ => {return None}}}
       _ => {return None}}}
 //
-lazy_static!{static ref INSTRUCTIONS:Vec<instruction> = vec![
+lazy_static!{static ref INSTRUCTIONS:Vec<instruction> = vec![];}
+lazy_static!{static ref _INSTRUCTIONS:Vec<instruction> = vec![
    instruction{name:"ADD".to_owned(), params:vec![operand::r_m8,operand::r8,], rm_byte:rm_type::available, opc_length:2, opc1:0x00, opc2:None, opc3:None, opc4_reg:None},
    instruction{name:"ADD".to_owned(), params:vec![operand::r_m16_32_64,operand::r16_32_64,], rm_byte:rm_type::available, opc_length:2, opc1:0x01, opc2:None, opc3:None, opc4_reg:None},
    instruction{name:"ADD".to_owned(), params:vec![operand::r8,operand::r_m8,], rm_byte:rm_type::available, opc_length:2, opc1:0x02, opc2:None, opc3:None, opc4_reg:None},

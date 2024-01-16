@@ -2,9 +2,11 @@ mod declarations;
 mod interpreter;
 use rfd::AsyncFileDialog;
 use crate::reconsole::interpreter::loaded_file;
+use crate::reconsole::interpreter::running_process;
 
 // GLOBAL VARS
 static mut AVAILABLE_FILES:Vec<loaded_file> = vec![];
+static mut AVAILABLE_PROCESSES:Vec<running_process> = vec![];
 
 static mut PREV_ENTRIES:Vec<line_struct> = vec![];
 
@@ -177,9 +179,9 @@ unsafe fn process_command(line:String){
         "hello" => {
             output("hello world!!".to_owned(), 0,255,0);
         },
-        "run"  => 'test: {
+        "load"  => 'test: { // filename
             // validate args
-            if args.len() < 2{break 'test;}
+            if args.len() < 2{output("too few arguments!".to_owned(), 255,0,0); break 'test;}
             let target_file = file_from_available(args[1]);
             if target_file.is_none(){
                 output(format!("error! file '{}' is not available!", args[1]), 255,0,0);
@@ -191,14 +193,52 @@ unsafe fn process_command(line:String){
                 output(format!("file error: {}", file_output.err().unwrap()), 255,0,0);
                 break 'test;
             }
-            let process = file_output.unwrap();
-            output(format!("process {} is now operational", process.name), 0,255,0);
-            
-            //
+            let mut process = file_output.unwrap();
+            output(format!("process {} (id:{}) is now operational", process.name, process.id), 0,255,0);
+            // load process into running process list
+            AVAILABLE_PROCESSES.push(process);
         },
+        "run"  => 'test1: { // id, instruction count [default:1]
+            // validate args
+            if args.len() < 2{output("too few arguments!".to_owned(), 255,0,0); break 'test1;}
+            // find target process
+            let mut target_proc:Option<&mut running_process> = None;
+            for proc in AVAILABLE_PROCESSES.iter_mut(){
+                if proc.id.to_string() == args[1]{
+                    target_proc = Some(proc);
+                    break;}}
+
+            if target_proc.is_none(){
+                output(format!("process by id:{} was not found!", args[1]), 255,0,0); 
+                break 'test1;}
+            
+            let process = target_proc.unwrap();
+            let mut instruction_count:u32 = 1;
+            if args.len() > 2{
+                let instr_cnt = args[2].parse();
+                if instr_cnt.is_err(){
+                    output(format!("instructions count:{} was not valid!", args[2]), 255,0,0); 
+                    break 'test1;}
+                instruction_count = instr_cnt.unwrap();}
+            
+            // then  we just run the instructions
+            for i in 0..instruction_count{
+                process.curr_address = 0; 
+                let test = process.run_single();
+                if test.is_none(){
+                    output("failed instruction".to_owned(), 255,0,0);
+                    break 'test1;}
+                output(test.unwrap().to_lowercase(), 200, 200,200);
+            }
+        }
         "dir" => {
             for file in AVAILABLE_FILES.iter(){
                 output(format!("{} {}", file.name.to_owned(), filesize_to_string(file.data.len())), 200, 200,200);
+            }
+        },
+        "proc" => {
+            for proc in AVAILABLE_PROCESSES.iter(){
+                output(format!("id: {}. {}. rip: {}", proc.id, proc.name, proc.curr_address), 200, 200,200);
             }
         },
         _ => {

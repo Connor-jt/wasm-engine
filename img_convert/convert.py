@@ -27,6 +27,22 @@ def fixup_chars(string:str) -> str:
         return "!"
     elif string == "un": # underscore
         return "_"
+    elif string == "bl": # bracket left
+        return "["
+    elif string == "br": # bracket right
+        return "]"
+    elif string == "pp": # pipe
+        return "|"
+    elif string == "pl": # plus
+        return "+"
+    elif string == "mn": # minus
+        return "-"
+    elif string == "eq": # equals
+        return "="
+    elif string == "at": # astricks
+        return "*"
+    elif string == "cm": # comma
+        return ","
     elif string == "C": # space
         return " "
     return string

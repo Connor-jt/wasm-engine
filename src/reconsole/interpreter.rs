@@ -78,14 +78,20 @@ impl running_process{
         return result;
     }
 
-    pub unsafe fn read_byte(&self, address:u64) -> u8 {*(address.to_owned() as *const u8)}
-    pub unsafe fn read_sbyte(&self, address:u64) -> i8 {*(address.to_owned() as *const i8)}
-    pub unsafe fn read_word(&self, address:u64) -> u16 {*(address.to_owned() as *const u16)}
-    pub unsafe fn read_sword(&self, address:u64) -> i16 {*(address.to_owned() as *const i16)}
-    pub unsafe fn read_dword(&self, address:u64) -> u32 {*(address.to_owned() as *const u32)}
-    //pub unsafe fn read_sdword(&self, address:u64) -> i32 {*(address.to_owned() as *const i32)}
-    pub unsafe fn read_sdword(&self, address:u64) -> i32 {0}
-    pub unsafe fn read_qword(&self, address:u64) -> u64 {*(address.to_owned() as *const u64)}
+    pub unsafe fn read_byte(&self, address:u64) -> u8 {*(address as *const u8)}
+    pub unsafe fn read_sbyte(&self, address:u64) -> i8 {*(address as *const i8)}
+    pub unsafe fn read_word(&self, address:u64) -> u16  {self.read_unaligned(address, 2) as u16}
+    pub unsafe fn read_sword(&self, address:u64) -> i16 {self.read_unaligned(address, 2) as i16}
+    pub unsafe fn read_dword(&self, address:u64) -> u32 {self.read_unaligned(address, 4) as u32}
+    pub unsafe fn read_sdword(&self, address:u64) -> i32 {self.read_unaligned(address, 4) as i32}
+    pub unsafe fn read_qword(&self, address:u64) -> u64 {self.read_unaligned(address, 8)}
+
+    pub unsafe fn read_unaligned(&self, address:u64, length:u64) -> u64{
+        // iterate through bytes and pack them (smallest numbers come first)
+        let mut result:u64 = 0;
+        for i in 0..length{result |= (self.read_byte(address+i) as u64) << (i*8)}
+        return result;
+    }
 
     pub unsafe fn get_prefix(&self) -> u16 {
         let mut curr_prefix:u16 = 0;
@@ -348,11 +354,11 @@ impl running_process{
             is_first = false;
         }
         // we want to write in the line of the instruction and the instruction bytes
-        let mut instruction_info = format!("{:0>16}", format!("{:x}", starting_offset)) + " _ ";
+        let mut instruction_info = format!("{:0>16}", format!("{:x}", starting_offset)) + " | ";
         while starting_offset < proc_address{
             instruction_info += &format!("{:0>2} ", format!("{:x}", self.read_byte(starting_offset)));
             starting_offset += 1;}
-        instruction_info += "_ ";
+        instruction_info += "| ";
         // combine header and stuff into results
         return Some(instruction_info + &printed_instruction);
     }

@@ -194,7 +194,7 @@ unsafe fn process_command(line:String){
                 break 'test;
             }
             let mut process = file_output.unwrap();
-            output(format!("process {} (id:{}) is now operational", process.name, process.id), 0,255,0);
+            output(format!("process {} id:{} is now operational", process.name, process.id), 0,255,0);
             // load process into running process list
             AVAILABLE_PROCESSES.push(process);
         },
@@ -231,6 +231,20 @@ unsafe fn process_command(line:String){
                 output(test.unwrap().to_lowercase(), 200, 200,200);
             }
         }
+        "rip" => 'test: { // id, new_rip_address
+            if args.len() < 3{output("too few arguments!".to_owned(), 255,0,0); break 'test;}
+            // verify id
+            // verify new_ip_address
+            // if starts with 0x then its hex, otherwise a number
+
+
+        }
+        "offs" =>{ // id, rip_offset
+
+        }
+        "read" =>{ // address, count
+            // read bytes at address for x amount
+        }
         "dir" => {
             for file in AVAILABLE_FILES.iter(){
                 output(format!("{} {}", file.name.to_owned(), filesize_to_string(file.data.len())), 200, 200,200);
@@ -238,8 +252,11 @@ unsafe fn process_command(line:String){
         },
         "proc" => {
             for proc in AVAILABLE_PROCESSES.iter(){
-                output(format!("id: {}. {}. rip: {}", proc.id, proc.name, proc.curr_address), 200, 200,200);
+                output(format!("id: {}, {}, rip: 0x{:x}", proc.id, proc.name, proc.curr_address), 200, 200,200);
             }
+        },
+        "clear" => {
+            unsafe {PREV_ENTRIES.clear();}
         },
         _ => {
             output(format!("error! cmd '{}' does not exist!", line), 255,0,0);

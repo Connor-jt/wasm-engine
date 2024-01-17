@@ -1,6 +1,5 @@
 mod declarations;
 mod interpreter;
-use rfd::AsyncFileDialog;
 use crate::reconsole::interpreter::loaded_file;
 use crate::reconsole::interpreter::running_process;
 
@@ -184,15 +183,11 @@ unsafe fn process_command(line:String){
             if args.len() < 2{output("too few arguments!".to_owned(), 255,0,0); break 'test;}
             let target_file = file_from_available(args[1]);
             if target_file.is_none(){
-                output(format!("error! file '{}' is not available!", args[1]), 255,0,0);
-                break 'test;
-            }
+                output(format!("error! file '{}' is not available!", args[1]), 255,0,0);break 'test;}
             //
             let file_output = target_file.unwrap().load_file();
             if file_output.is_err(){
-                output(format!("file error: {}", file_output.err().unwrap()), 255,0,0);
-                break 'test;
-            }
+                output(format!("file error: {}", file_output.err().unwrap()), 255,0,0);break 'test;}
             let mut process = file_output.unwrap();
             output(format!("process {} id:{} is now operational", process.name, process.id), 0,255,0);
             // load process into running process list
@@ -201,24 +196,17 @@ unsafe fn process_command(line:String){
         "run"  => 'test1: { // id, instruction count [default:1]
             // validate args
             if args.len() < 2{output("too few arguments!".to_owned(), 255,0,0); break 'test1;}
-            // find target process
-            let mut target_proc:Option<&mut running_process> = None;
-            for proc in AVAILABLE_PROCESSES.iter_mut(){
-                if proc.id.to_string() == args[1]{
-                    target_proc = Some(proc);
-                    break;}}
-
-            if target_proc.is_none(){
-                output(format!("process by id:{} was not found!", args[1]), 255,0,0); 
-                break 'test1;}
             
-            let process = target_proc.unwrap();
+            let target_proc = get_proc(args[1]);
+            if target_proc.is_none(){
+                output(format!("process by id:{} was not found!", args[1]), 255,0,0); break 'test1;}
+            let process:&mut running_process = target_proc.unwrap();
+
             let mut instruction_count:u32 = 1;
             if args.len() > 2{
                 let instr_cnt = args[2].parse();
                 if instr_cnt.is_err(){
-                    output(format!("instructions count:{} was not valid!", args[2]), 255,0,0); 
-                    break 'test1;}
+                    output(format!("instructions count:{} was not valid!", args[2]), 255,0,0); break 'test1;}
                 instruction_count = instr_cnt.unwrap();}
             
             // then  we just run the instructions
@@ -226,24 +214,82 @@ unsafe fn process_command(line:String){
                 //process.curr_address = 0; 
                 let test = process.run_single();
                 if test.is_none(){
-                    output("failed instruction".to_owned(), 255,0,0);
-                    break 'test1;}
+                    output("failed instruction".to_owned(), 255,0,0);break 'test1;}
                 output(test.unwrap().to_lowercase(), 200, 200,200);
             }
         }
         "rip" => 'test: { // id, new_rip_address
             if args.len() < 3{output("too few arguments!".to_owned(), 255,0,0); break 'test;}
+
             // verify id
-            // verify new_ip_address
+            let target_proc = get_proc(args[1]);
+            if target_proc.is_none(){
+                output(format!("process by id:{} was not found!", args[1]), 255,0,0); 
+                break 'test;}
+            let process:&mut running_process = target_proc.unwrap();
+
+            // verify new_rip_address
             // if starts with 0x then its hex, otherwise a number
-
-
+            let offset_result:Result<u64, std::num::ParseIntError>;
+            if args[2].starts_with("0x"){
+                  offset_result = u64::from_str_radix(&args[2].trim_start_matches("0x"), 16);} 
+            else{ offset_result = args[2].parse::<u64>();}
+            if offset_result.is_err(){
+                output(format!("arg '{}' was not a valid address!", args[2]), 255,0,0); break 'test;}
+            
+            process.curr_address = offset_result.unwrap();
+            output(format!("process id:{} address updated to: 0x{:x}",process.id, process.curr_address), 0,255,0); break 'test;
         }
-        "offs" =>{ // id, rip_offset
+        "offs" => 'test: { // id, rip_offset
+            if args.len() < 3{output("too few arguments!".to_owned(), 255,0,0); break 'test;}
 
+            // verify id
+            let target_proc = get_proc(args[1]);
+            if target_proc.is_none(){
+                output(format!("process by id:{} was not found!", args[1]), 255,0,0); 
+                break 'test;}
+            let process:&mut running_process = target_proc.unwrap();
+
+            // verify offset value
+            // if starts with 0x then its hex, otherwise a number
+            let offset_result:Result<i64, std::num::ParseIntError>;
+            let mut is_negative = false;
+            if args[2].starts_with("0x"){
+                  offset_result = i64::from_str_radix(&args[2].trim_start_matches("0x"), 16);} 
+            else if args[2].starts_with("-0x"){ // as we support negative offsets
+                  offset_result = i64::from_str_radix(&args[2].trim_start_matches("-0x"), 16);
+                  is_negative = true;}
+            else{ offset_result = args[2].parse::<i64>();} // else regular number
+            if offset_result.is_err(){
+                output(format!("arg '{}' was not a valid address!", args[2]), 255,0,0); break 'test;}
+
+            let mut target_offset = offset_result.unwrap();
+            if is_negative {target_offset *= -1;}
+            // this is so cursed & epic & bad
+            if target_offset < 0 {process.curr_address -= (target_offset.abs() as u64);}
+            else {process.curr_address += target_offset as u64;}
+            output(format!("process id:{} address updated to: 0x{:x}",process.id, process.curr_address), 0,255,0); break 'test;
         }
-        "read" =>{ // address, count
+        "read" => 'test:{ // address, count
             // read bytes at address for x amount
+            // get address 
+            let offset_result:Result<u64, std::num::ParseIntError>;
+            if args[1].starts_with("0x"){
+                  offset_result = u64::from_str_radix(&args[1].trim_start_matches("0x"), 16);} 
+            else{ offset_result = args[1].parse::<u64>();}
+            if offset_result.is_err(){
+                output(format!("arg '{}' was not a valid address!", args[1]), 255,0,0); break 'test;}
+            let offset = offset_result.unwrap();
+            // get count
+            let count_result = args[2].parse::<u64>();
+            if count_result.is_err(){
+                output(format!("arg '{}' was not a valid count!", args[2]), 255,0,0); break 'test;}
+            let count = count_result.unwrap();
+
+            let mut con_output = "".to_owned();
+            for i in 0..count{
+                con_output += &format!("{:0>2} ", format!("{:x}", *((offset+i) as *const u8)));}
+            output(con_output, 200, 200,200);
         }
         "dir" => {
             for file in AVAILABLE_FILES.iter(){
@@ -265,4 +311,10 @@ unsafe fn process_command(line:String){
 
 
     input_blocked = false;
+}
+unsafe fn get_proc(id:&str) -> Option<&'static mut running_process>{
+    for proc in AVAILABLE_PROCESSES.iter_mut(){
+        if proc.id.to_string() == id{
+            return Some(proc);}}
+    return None;
 }

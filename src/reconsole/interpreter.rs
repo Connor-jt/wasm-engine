@@ -98,7 +98,7 @@ impl running_process{
         loop{
             let curr_byte = self.read_byte(proc_address);
             // if it falls within the rex prefix range, then we just take the rex prefix and pop it in ours
-            if (curr_byte > 0x40 && curr_byte < 0x50){
+            if (curr_byte >= 0x40 && curr_byte < 0x50){
                 curr_prefix |= asm86::prefixes::rex as u16; // assign generic REX type, next wont do anything if rex is 0x40
                 curr_prefix |= (curr_byte & 0b1111) as u16;
             // regular prefixes
@@ -355,10 +355,11 @@ impl running_process{
         }
         // we want to write in the line of the instruction and the instruction bytes
         let mut instruction_info = format!("{:0>16}", format!("{:x}", starting_offset)) + " | ";
+        let mut instruction_bytes: String = "".to_owned();
         while starting_offset < proc_address{
-            instruction_info += &format!("{:0>2} ", format!("{:x}", self.read_byte(starting_offset)));
+            instruction_bytes += &format!("{:0>2} ", format!("{:x}", self.read_byte(starting_offset)));
             starting_offset += 1;}
-        instruction_info += "| ";
+        instruction_info += &format!("{: <24}| ", instruction_bytes);
         // combine header and stuff into results
         return Some(instruction_info + &printed_instruction);
     }
